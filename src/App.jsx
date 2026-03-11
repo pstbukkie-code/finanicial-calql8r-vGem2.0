@@ -73,9 +73,10 @@ export default function App() {
     return saved ? JSON.parse(saved) : defaultBanks;
   });
 
+  // FIXED: Changed defaultBUs to defaultSubsidiaries
   const [savedSubsidiaries, setSavedSubsidiaries] = useState(() => {
     const saved = localStorage.getItem("my_bus");
-    return saved ? JSON.parse(saved) : defaultBUs;
+    return saved ? JSON.parse(saved) : defaultSubsidiaries; 
   });
 
   const [currencies, setCurrencies] = useState(() => {
