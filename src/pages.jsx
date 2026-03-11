@@ -206,7 +206,7 @@ export function DrawdownsPage({
   const uniqueSubsidiaries = useMemo(
     () => [
       'All',
-      ...new Set(facilities.flatMap((f) => f.drawdowns.map((d) => d.buDept))),
+      ...new Set(facilities.flatMap((f) => f.drawdowns.map((d) => d.subsidiary))),
     ],
     [facilities]
   );
@@ -220,7 +220,7 @@ export function DrawdownsPage({
           facility: f,
           facilityName: f.facilityName,
           bank: f.bank,
-          subsidiary: d.buDept,
+          subsidiary: d.subsidiary,
           outstanding: stats.outstanding,
           interest: stats.interest,
           rate:
@@ -354,7 +354,7 @@ export function DrawdownDetailModal({
       >
         <div>
           <span style={{ color: '#8aa3be' }}>Subsidiary:</span>{' '}
-          {drawdown.buDept}
+          {drawdown.subsidiary}
         </div>
         <div>
           <span style={{ color: '#8aa3be' }}>Facility:</span>{' '}

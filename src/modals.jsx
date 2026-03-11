@@ -80,48 +80,39 @@ export function CurrencyManager({ currencies, setCurrencies, onClose }) {
   );
 }
 
-// --- Banks/BUs Manager ---
-export function BanksBUsManager({ banks, setBanks, bus, setBus, onClose }) {
+// --- Banks/Subsidiaries Manager ---
+export function BanksSubsidiariesManager({ banks, setBanks, subsidiaries, setSubsidiaries, onClose }) {
   const [newBank, setNewBank] = useState('');
-  const [newBU, setNewBU] = useState('');
+  const [newSubsidiary, setNewSubsidiary] = useState('');
+
   const addBank = () => {
     if (newBank && !banks.includes(newBank)) {
       setBanks([...banks, newBank].sort());
       setNewBank('');
     }
   };
-  const addBU = () => {
-    if (newBU && !bus.includes(newBU)) {
-      setBus([...bus, newBU].sort());
-      setNewBU('');
+
+  const addSubsidiary = () => {
+    if (newSubsidiary && !subsidiaries.includes(newSubsidiary)) {
+      setSubsidiaries([...subsidiaries, newSubsidiary].sort());
+      setNewSubsidiary('');
     }
   };
+
   const removeBank = (bank) => setBanks(banks.filter((b) => b !== bank));
-  const removeBU = (bu) => setBus(bus.filter((b) => b !== bu));
+  const removeSubsidiary = (sub) => setSubsidiaries(subsidiaries.filter((s) => s !== sub));
+
   return (
     <Modal
-      title="Banks \& Business Units Manager"
+      title="Banks & Subsidiaries Manager"
       onClose={onClose}
       width={600}
     >
-      {' '}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {' '}
+        {/* Banks Column */}
         <div>
-          {' '}
-          <h4 style={{ color: '#e8f0fe', fontWeight: 'bold', marginBottom: 8 }}>
-            Banks{' '}
-          </h4>{' '}
-          <ul
-            style={{
-              margin: 0,
-              padding: 0,
-              listStyle: 'none',
-              maxHeight: 200,
-              overflowY: 'auto',
-            }}
-          >
-            {' '}
+          <h4 style={{ color: '#e8f0fe', fontWeight: 'bold', marginBottom: 8 }}>Banks</h4>
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', maxHeight: 200, overflowY: 'auto' }}>
             {banks.map((b) => (
               <li
                 key={b}
@@ -134,7 +125,7 @@ export function BanksBUsManager({ banks, setBanks, bus, setBus, onClose }) {
                   marginBottom: 4,
                 }}
               >
-                <span>{b}</span>{' '}
+                <span>{b}</span>
                 <button
                   onClick={() => removeBank(b)}
                   style={{
@@ -144,42 +135,31 @@ export function BanksBUsManager({ banks, setBanks, bus, setBus, onClose }) {
                     cursor: 'pointer',
                   }}
                 >
-                  ✕{' '}
-                </button>{' '}
+                  ✕
+                </button>
               </li>
-            ))}{' '}
-          </ul>{' '}
+            ))}
+          </ul>
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-            {' '}
             <input
               value={newBank}
               onChange={(e) => setNewBank(e.target.value)}
               placeholder="New bank"
               style={{ flex: 1, ...S.inp }}
-            />{' '}
+            />
             <button onClick={addBank} style={mkbtn('#c9a84c', '#0a1520', 'sm')}>
-              Add{' '}
-            </button>{' '}
-          </div>{' '}
-        </div>{' '}
+              Add
+            </button>
+          </div>
+        </div>
+
+        {/* Subsidiaries Column */}
         <div>
-          {' '}
-          <h4 style={{ color: '#e8f0fe', fontWeight: 'bold', marginBottom: 8 }}>
-            Business Units{' '}
-          </h4>{' '}
-          <ul
-            style={{
-              margin: 0,
-              padding: 0,
-              listStyle: 'none',
-              maxHeight: 200,
-              overflowY: 'auto',
-            }}
-          >
-            {' '}
-            {bus.map((b) => (
+          <h4 style={{ color: '#e8f0fe', fontWeight: 'bold', marginBottom: 8 }}>Subsidiaries</h4>
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', maxHeight: 200, overflowY: 'auto' }}>
+            {subsidiaries.map((s) => (
               <li
-                key={b}
+                key={s}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -189,9 +169,9 @@ export function BanksBUsManager({ banks, setBanks, bus, setBus, onClose }) {
                   marginBottom: 4,
                 }}
               >
-                <span>{b}</span>{' '}
+                <span>{s}</span>
                 <button
-                  onClick={() => removeBU(b)}
+                  onClick={() => removeSubsidiary(s)}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -199,25 +179,24 @@ export function BanksBUsManager({ banks, setBanks, bus, setBus, onClose }) {
                     cursor: 'pointer',
                   }}
                 >
-                  ✕{' '}
-                </button>{' '}
+                  ✕
+                </button>
               </li>
-            ))}{' '}
-          </ul>{' '}
+            ))}
+          </ul>
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-            {' '}
             <input
-              value={newBU}
-              onChange={(e) => setNewBU(e.target.value)}
-              placeholder="New BU"
+              value={newSubsidiary}
+              onChange={(e) => setNewSubsidiary(e.target.value)}
+              placeholder="New subsidiary"
               style={{ flex: 1, ...S.inp }}
-            />{' '}
-            <button onClick={addBU} style={mkbtn('#c9a84c', '#0a1520', 'sm')}>
-              Add{' '}
-            </button>{' '}
-          </div>{' '}
-        </div>{' '}
-      </div>{' '}
+            />
+            <button onClick={addSubsidiary} style={mkbtn('#c9a84c', '#0a1520', 'sm')}>
+              Add
+            </button>
+          </div>
+        </div>
+      </div>
     </Modal>
   );
 }
@@ -355,7 +334,7 @@ export function FacilityDetailModal({ facility, currencies, onClose }) {
                       >
                         {fmtN(bal, sym)}
                       </td>
-                      <td style={S.td}>{d.buDept}</td>
+                      <td style={S.td}>{d.subsidiary}</td>
                       <td style={S.td}>{rate}%</td>
                       <td style={S.td}>
                         {d.marginApplied ? `+${d.marginRate}%` : 'No'}
@@ -589,7 +568,7 @@ export function FacilityDetailModal({ facility, currencies, onClose }) {
             )}{' '}
           </div>{' '}
           <div style={{ background: '#0a1520', padding: 12, borderRadius: 8 }}>
-            <span style={{ color: '#8aa3be' }}>Board Rate</span>{' '}
+            <span style={{ color: '#8aa3be' }}>Board Approved Interest Rate</span>{' '}
             <div>{facility.boardRate}%</div>{' '}
           </div>{' '}
           <div style={{ background: '#0a1520', padding: 12, borderRadius: 8 }}>
@@ -694,10 +673,10 @@ export function FacilityDetailModal({ facility, currencies, onClose }) {
 }
 
 // --- BU Detail Modal (updated to show margin income) ---
-export function BUDetailModal({ bu, facilities, currencies, displayCcy, onClose }) {
+export function SubsidiaryDetailModal({ bu, facilities, currencies, displayCcy, onClose }) {
   const relevantDrawdowns = facilities.flatMap((f) =>
     f.drawdowns
-      .filter((d) => d.buDept === bu)
+      .filter((d) => d.subsidiary === bu)
       .map((d) => ({ ...d, facility: f }))
   );
 
@@ -1736,7 +1715,7 @@ export function FacilityFormWizard({
             </div>{' '}
           </div>{' '}
           <div style={{ gridColumn: 'span 2' }}>
-            <label style={S.lbl}>Board Rate (%) *</label>{' '}
+            <label style={S.lbl}>Board Approved Interest Rate (%) *</label>{' '}
             <input
               type="number"
               step="0.01"
@@ -2241,7 +2220,7 @@ export function DrawdownModal({
   stats,
   onClose,
   onDrawdown,
-  savedBUs,
+  savedSubsidiaries,
   onAddBU,
 }) {
   const [amount, setAmount] = useState('');
@@ -2249,7 +2228,7 @@ export function DrawdownModal({
   const [day, setDay] = useState(new Date().getDate());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [buDept, setBuDept] = useState('');
+  const [subsidiary, setBuDept] = useState('');
   const [marginApplied, setMarginApplied] = useState(false);
   const [marginRate, setMarginRate] = useState('');
   const [subFacility, setSubFacility] = useState('primary');
@@ -2275,7 +2254,7 @@ export function DrawdownModal({
           facility.ccy === 'NGN' ? '₦' : '$'
         )}`
       );
-    if (!buDept) return alert('Select Business Unit/Department.');
+    if (!subsidiary) return alert('Select Business Unit/Department.');
     let yearVal = year;
     if (year === 'Custom') {
       const custom = prompt('Enter custom year (e.g., 2025):');
@@ -2292,7 +2271,7 @@ export function DrawdownModal({
       amount: amt,
       purpose,
       repaid: 0,
-      buDept,
+      subsidiary,
       interestRateOverride: null,
       marginApplied,
       marginRate: margin,
@@ -2461,12 +2440,12 @@ export function DrawdownModal({
         <div style={{ display: 'flex', gap: 6 }}>
           {' '}
           <select
-            value={buDept}
+            value={subsidiary}
             onChange={(e) => setBuDept(e.target.value)}
             style={{ flex: 1, ...S.inp }}
           >
             <option value="">-- Select BU --</option>{' '}
-            {savedBUs.map((b) => (
+            {savedSubsidiaries.map((b) => (
               <option key={b} value={b}>
                 {b}{' '}
               </option>
@@ -2630,7 +2609,7 @@ export function ScenarioModal({
           amount: amt,
           purpose: 'Scenario',
           repaid: 0,
-          buDept: 'Scenario',
+          subsidiary: 'Scenario',
           interestRateOverride: null,
           marginApplied: false,
           marginRate: 0,

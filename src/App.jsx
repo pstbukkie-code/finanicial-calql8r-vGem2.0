@@ -26,7 +26,7 @@ import {
 } from './utils';
 import {
   defaultBanks,
-  defaultBUs,
+  defaultSubsidiaries,
   initialCurrencies,
   initialFacilities,
 } from './data';
@@ -40,9 +40,9 @@ import {
 } from './pages';
 import {
   CurrencyManager,
-  BanksBUsManager,
+  BanksSubsidiariesManager,
   FacilityDetailModal,
-  BUDetailModal,
+  SubsidiaryDetailModal,
   CSVImportWizard,
   FacilityFormWizard,
   DrawdownModal,
@@ -73,7 +73,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : defaultBanks;
   });
 
-  const [savedBUs, setSavedBUs] = useState(() => {
+  const [savedSubsidiaries, setSavedSubsidiaries] = useState(() => {
     const saved = localStorage.getItem("my_bus");
     return saved ? JSON.parse(saved) : defaultBUs;
   });
@@ -93,8 +93,8 @@ export default function App() {
   }, [savedBanks]);
 
   useEffect(() => {
-    localStorage.setItem("my_bus", JSON.stringify(savedBUs));
-  }, [savedBUs]);
+    localStorage.setItem("my_bus", JSON.stringify(savedSubsidiaries));
+  }, [savedSubsidiaries]);
 
   useEffect(() => {
     localStorage.setItem("my_currencies", JSON.stringify(currencies));
@@ -113,7 +113,7 @@ export default function App() {
   const [filterClass, setFilterClass] = useState('All');
   const [groupByBank, setGroupByBank] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
-  const [selectedBU, setSelectedBU] = useState(null);
+  const [selectedSubsidiary, setSelectedSubsidiary] = useState(null);
   const [selectedYearMonth, setSelectedYearMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -304,8 +304,8 @@ export default function App() {
   const addBank = (name) => {
     if (!savedBanks.includes(name)) setSavedBanks([...savedBanks, name].sort());
   };
-  const addBU = (name) => {
-    if (!savedBUs.includes(name)) setSavedBUs([...savedBUs, name].sort());
+  const addSubsidiary = (name) => {
+    if (!savedSubsidiaries.includes(name)) setSavedSubsidiaries([...savedSubsidiaries, name].sort());
   };
 
   const selFac = modal?.facilityId
@@ -1245,12 +1245,12 @@ export default function App() {
                 <tbody>
                   {' '}
                   {(() => {
-                    const buMap = {};
+                    const subMap = {};
                     allStats.forEach((f) => {
                       f.drawdowns.forEach((d) => {
-                        const bu = d.buDept || 'Unallocated';
-                        if (!buMap[bu])
-                          buMap[bu] = {
+                        const bu = d.subsidiary || 'Unallocated';
+                        if (!subMap[bu])
+                          subMap[bu] = {
                             drawn: 0,
                             repaid: 0,
                             outstanding: 0,
@@ -1263,9 +1263,9 @@ export default function App() {
                           f.ccy
                         );
                         const outstanding = drawn - repaid;
-                        buMap[bu].drawn += drawn;
-                        buMap[bu].repaid += repaid;
-                        buMap[bu].outstanding += outstanding;
+                        subMap[bu].drawn += drawn;
+                        subMap[bu].repaid += repaid;
+                        subMap[bu].outstanding += outstanding;
                         const rate =
                           d.interestRateOverride ??
                           f.boardRate + (d.marginApplied ? d.marginRate : 0);
@@ -1278,15 +1278,15 @@ export default function App() {
                             100) *
                             days) /
                           365;
-                        buMap[bu].interest += toDisplay(int, f.ccy);
-                        buMap[bu].facilities.add(f.id);
+                        subMap[bu].interest += toDisplay(int, f.ccy);
+                        subMap[bu].facilities.add(f.id);
                       });
                     });
-                    return Object.entries(buMap).map(([bu, data]) => (
+                    return Object.entries(subMap).map(([bu, data]) => (
                       <tr
                         key={bu}
                         style={{ cursor: 'pointer' }}
-                        onClick={() => setSelectedBU(bu)}
+                        onClick={() => setSelectedSubsidiary(bu)}
                       >
                         {' '}
                         <td
@@ -1391,8 +1391,8 @@ export default function App() {
           stats={calcStats(selFac, currencies)}
           onClose={() => setModal(null)}
           onDrawdown={addDD}
-          savedBUs={savedBUs}
-          onAddBU={addBU}
+          savedSubsidiaries={savedSubsidiaries}
+          onAddSubsidiary={addSubsidiary}
         />
       )}{' '}
       {modal?.type === 'repay' && selFac && (
@@ -1410,11 +1410,11 @@ export default function App() {
         />
       )}{' '}
       {modal?.type === 'banksBus' && (
-        <BanksBUsManager
+        <BanksSubsidiariesManager
           banks={savedBanks}
           setBanks={setSavedBanks}
-          bus={savedBUs}
-          setBus={setSavedBUs}
+          subsidiaries={savedSubsidiaries}
+          setSubsidiaries={setSavedSubsidiaries}
           onClose={() => setModal(null)}
         />
       )}{' '}
@@ -1440,13 +1440,13 @@ export default function App() {
           onClose={() => setSelectedFacility(null)}
         />
       )}{' '}
-      {selectedBU && (
-        <BUDetailModal
-          bu={selectedBU}
+      {selectedSubsidiary && (
+        <SubsidiaryDetailModal
+          subsidiary={selectedSubsidiary}
           facilities={allStats}
           currencies={currencies}
           displayCcy={displayCcy}
-          onClose={() => setSelectedBU(null)}
+          onClose={() => setSelectedSubsidiary(null)}
         />
       )}{' '}
       {confirm && (

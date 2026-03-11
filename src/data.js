@@ -12,7 +12,7 @@ export const defaultBanks = [
   "Polaris Bank",
 ];
 
-export const defaultBUs = [
+export const defaultSubsidiaries = [
   "Corporate Office",
   "Sales & Marketing",
   "Operations",
@@ -69,7 +69,7 @@ export const initialFacilities = [
         amount: 1000000000,
         purpose: "Working Capital",
         repaid: 0,
-        buDept: "Corporate Office",
+        subsidiary: "Corporate Office",
         interestRateOverride: null,
         marginApplied: false,
         marginRate: 0,
@@ -119,7 +119,7 @@ export const initialFacilities = [
         amount: 3000000,
         purpose: "Import Finance",
         repaid: 0,
-        buDept: "Supply Chain",
+        subsidiary: "Supply Chain",
         interestRateOverride: null,
         marginApplied: false,
         marginRate: 0,
@@ -169,7 +169,7 @@ export const initialFacilities = [
         amount: 3000000000,
         purpose: "Capital Expansion",
         repaid: 500000000,
-        buDept: "Operations",
+        subsidiary: "Operations",
         interestRateOverride: null,
         marginApplied: false,
         marginRate: 0,
