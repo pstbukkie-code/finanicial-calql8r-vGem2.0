@@ -1,0 +1,12 @@
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #050b14; /* Your dark theme background */
+  color: #e8f0fe;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+#root {
+  width: 100%;
+  text-align: left; /* This forces everything to snap back to the left! */
+}
