@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { S, mkbtn, Badge, UtilBar, Modal } from "./ui.jsx";
-import { fmtN, fmtPct, daysBetween, calcStats, calcDrawdownSubsidiaryStats, generateInterestSchedule, formatTenure } from "./utils";
+import { fmtN, fmtPct, daysBetween, calcStats, calcDrawdownSubsidiaryStats, generateRepaymentSchedule, formatTenure } from "./utils";
 // --- Interest & Fees Page (filtered by bank then facility) ---
 export function InterestFeesPage({ facilities, currencies, displayCcy }) {
   const [filterBank, setFilterBank] = useState('All');

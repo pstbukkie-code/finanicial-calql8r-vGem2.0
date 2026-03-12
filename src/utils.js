@@ -1,27 +1,10 @@
-// --- Helper Functions ---
+// src/utils.js
+
 export const fmtN = (n, ccy = "") => {
   if (Math.abs(n) >= 1e9) return `${ccy}${(n / 1e9).toFixed(2)}B`;
   if (Math.abs(n) >= 1e6) return `${ccy}${(n / 1e6).toFixed(2)}M`;
   if (Math.abs(n) >= 1e3) return `${ccy}${(n / 1e3).toFixed(1)}K`;
   return `${ccy}${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-};
-
-export const formatTenure = (days) => {
-  if (days === null || days === 0) return "";
-  const totalMonths = Math.floor(days / 30);
-  const years = Math.floor(days / 365);
-  const remainingMonths = Math.floor((days % 365) / 30);
-  let result = `${days} day${days !== 1 ? "s" : ""}`;
-  if (days >= 30) {
-    result += ` / ${totalMonths} month${totalMonths !== 1 ? "s" : ""}`;
-  }
-  if (days >= 365) {
-    result += ` / ${years} year${years !== 1 ? "s" : ""}`;
-    if (remainingMonths > 0) {
-      result += `, ${remainingMonths} month${remainingMonths !== 1 ? "s" : ""}`;
-    }
-  }
-  return result;
 };
 
 export const fmtFull = (n, ccy = "") =>
@@ -35,159 +18,108 @@ export const daysBetween = (d1, d2) =>
 export function calcStats(f, currencies, today = new Date()) {
   const fxRate = currencies.find((c) => c.code === f.ccy)?.rate || 1;
   const todayStr = today.toISOString().split("T")[0]; 
-  const basis = f.interestBasis || "Daily/Simple";
 
-  const computeStats = (drawdowns, baseRate, interestBasis) => {
-    const drawn = drawdowns.reduce((s, d) => s + d.amount, 0);
-    const repaid = drawdowns.reduce((s, d) => s + d.repaid, 0);
-    const outstanding = drawn - repaid;
-    const interest = drawdowns.reduce((s, d) => {
-      let rate = d.interestRateOverride ?? baseRate;
-      if (d.marginApplied) rate += d.marginRate;
-      const r = rate / 100; 
-      const days = Math.max(0, daysBetween(d.date, todayStr));
-      const p = Math.max(0, d.amount - d.repaid); 
-
-      let calculatedInterest = 0;
-      if (interestBasis === "Daily/Compound") {
-        const amountWithInterest = p * Math.pow(1 + r / 365, days);
-        calculatedInterest = amountWithInterest - p;
-      } else if (interestBasis === "Monthly/Compound") {
-        const periods = 12 * (days / 365);
-        const amountWithInterest = p * Math.pow(1 + r / 12, periods);
-        calculatedInterest = amountWithInterest - p;
-      } else {
-        calculatedInterest = p * r * (days / 365);
-      }
-      return s + calculatedInterest;
-    }, 0);
-    return { drawn, repaid, outstanding, interest };
+  const computeStats = (drawdowns, repayments, baseRate) => {
+     const events = [];
+     drawdowns.forEach(d => events.push({ date: d.date, amount: d.amount, type: 'drawdown' }));
+     repayments.filter(r => r.type === 'principal').forEach(r => events.push({ date: r.date, amount: r.amount, type: 'repay' }));
+     
+     events.sort((a, b) => new Date(a.date) - new Date(b.date));
+     
+     let balance = 0;
+     let interestAccrued = 0;
+     let lastDate = f.startDate || todayStr;
+     
+     events.forEach(ev => {
+         if (new Date(ev.date) > new Date(todayStr)) return;
+         let days = Math.max(0, daysBetween(lastDate, ev.date));
+         if (days > 0 && balance > 0) {
+             interestAccrued += balance * (baseRate / 100) * (days / 365);
+         }
+         if (ev.type === 'drawdown') balance += ev.amount;
+         if (ev.type === 'repay') balance -= ev.amount;
+         lastDate = ev.date;
+     });
+     
+     let daysToToday = Math.max(0, daysBetween(lastDate, todayStr));
+     if (daysToToday > 0 && balance > 0) {
+         interestAccrued += balance * (baseRate / 100) * (daysToToday / 365);
+     }
+     
+     const drawn = drawdowns.reduce((s,d)=>s+d.amount,0);
+     const repaid = repayments.filter(r=>r.type==='principal').reduce((s,r)=>s+r.amount,0);
+     const interestPaid = repayments.filter(r=>r.type==='interest').reduce((s,r)=>s+r.amount,0);
+     
+     return { drawn, repaid, outstanding: balance, interest: Math.max(0, interestAccrued - interestPaid) };
   };
 
-  const primaryDrawdowns = f.drawdowns.filter((d) => d.subFacility !== "secondary");
-  const secondaryDrawdowns = f.drawdowns.filter((d) => d.subFacility === "secondary");
-  const primaryStats = computeStats(primaryDrawdowns, f.boardRate, basis);
+  const reps = f.repayments || [];
+  const primaryDrawdowns = (f.drawdowns || []).filter((d) => d.subFacility !== "secondary");
+  const secondaryDrawdowns = (f.drawdowns || []).filter((d) => d.subFacility === "secondary");
+  
+  const primaryStats = computeStats(primaryDrawdowns, reps, f.boardRate);
   const secondaryStats = f.facilityClass === "Overdraft/Short Term"
-      ? computeStats(secondaryDrawdowns, f.boardRate2 || f.boardRate, basis)
+      ? computeStats(secondaryDrawdowns, [], f.boardRate2 || f.boardRate)
       : { drawn: 0, repaid: 0, outstanding: 0, interest: 0 };
 
   const totalDrawn = primaryStats.drawn + secondaryStats.drawn;
   const totalRepaid = primaryStats.repaid + secondaryStats.repaid;
   const totalOutstanding = totalDrawn - totalRepaid; 
-  const totalLoanAmount = (parseFloat(f.facilityAmount) || 0) + (parseFloat(f.facilityAmount2) || 0);
+  const totalLoanAmount = parseFloat(f.facilityAmount) || 0;
   const available = Math.max(0, totalLoanAmount - totalDrawn);
   const utilPct = totalLoanAmount > 0 ? (totalDrawn / totalLoanAmount) * 100 : 0;
   const totalInterest = primaryStats.interest + secondaryStats.interest;
-  const daysToMat = f.maturity ? daysBetween(todayStr, f.maturity) : null;
-  const limitNGN = f.ccy === "USD" ? f.limitF * fxRate : f.limitF;
-  const outstandingNGN = f.ccy === "USD" ? totalOutstanding * fxRate : totalOutstanding;
   
-  const mgmtFeeAmount = f.limitF * (f.mgmtFee / 100);
-  const commitFeeAmount = f.limitF * (f.commitFee / 100);
-  const mgmtFeeNGN = f.ccy === "USD" ? mgmtFeeAmount * fxRate : mgmtFeeAmount;
-  const commitFeeNGN = f.ccy === "USD" ? commitFeeAmount * fxRate : commitFeeAmount;
-  const totalFeesNGN = mgmtFeeNGN + commitFeeNGN;
-
   return {
     drawn: totalDrawn, repaid: totalRepaid, outstanding: totalOutstanding, available, utilPct,
-    interest: totalInterest, daysToMat, limitNGN, outstandingNGN, mgmtFeePct: f.mgmtFee,
-    commitFeePct: f.commitFee, mgmtFeeAmount, commitFeeAmount, totalFees: mgmtFeeAmount + commitFeeAmount,
-    mgmtFeeNGN, commitFeeNGN, totalFeesNGN, primaryStats, secondaryStats,
+    interest: totalInterest, primaryStats, secondaryStats,
   };
 }
 
-export function calcDrawdownSubsidiaryStats(drawdown, masterRate, today = new Date()) {
-  const rate = drawdown.interestRateOverride ?? (masterRate + (drawdown.marginApplied ? drawdown.marginRate : 0));
-  const outstanding = drawdown.amount - (drawdown.subsidiaryRepaid || 0);
-  const days = Math.max(0, daysBetween(drawdown.date, today.toISOString().split("T")[0]));
-  const interest = (outstanding * rate / 100) * days / 365;
-  return { outstanding, interest };
-}
-
-export function generateInterestSchedule(facility, today = new Date()) {
+export function generateRepaymentSchedule(facility) {
   const schedule = [];
   const start = new Date(facility.startDate);
   const maturity = new Date(facility.maturity);
   if (isNaN(start) || isNaN(maturity)) return [];
 
-  const cycleMap = {
-    "Daily": 1, "Monthly": 30, "Quarterly": 91, "Semi-Annual": 182, "Annual": 365, "At maturity": null, "Bullet": null,
+  const getMonths = (cycle) => {
+    switch(cycle) {
+      case 'Monthly': return 1;
+      case 'Quarterly': return 3;
+      case 'Semi-Annual': return 6;
+      case 'Annual': return 12;
+      default: return 0;
+    }
   };
-  const cycleDays = cycleMap[facility.intPayCycle] || 30; 
-  const effectiveRate = (facility.boardRate || 0) + (facility.sofrRate || 0) + (facility.otherRate || 0);
-  const ratePerDay = effectiveRate / 100 / 365;
 
-  let moratoriumEnd = null;
-  if (facility.moratoriumValue > 0 && facility.moratoriumUnit !== "None") {
-    const moratoriumDays = facility.moratoriumValue * (facility.moratoriumUnit === "Days" ? 1 : facility.moratoriumUnit === "Months" ? 30 : 365);
-    moratoriumEnd = new Date(start);
-    moratoriumEnd.setDate(moratoriumEnd.getDate() + moratoriumDays);
-  }
+  const intMonths = getMonths(facility.intPayCycle);
+  const repMonths = getMonths(facility.repCycle);
+  let totalMonths = (maturity.getFullYear() - start.getFullYear()) * 12 + (maturity.getMonth() - start.getMonth());
+  if (totalMonths <= 0) totalMonths = 1;
 
-  let outstanding = facility.facilityAmount;
-  let currentDate = new Date(start);
+  let currentBalance = parseFloat(facility.facilityAmount) || 0;
+  const rate = parseFloat(facility.boardRate) || 0;
+  let totalRepPeriods = repMonths > 0 ? Math.floor(totalMonths / repMonths) : 1;
+  let principalPerPeriod = currentBalance / totalRepPeriods;
+  let accumulatedInterest = 0;
 
-  while (currentDate < maturity && outstanding > 0) {
-    let periodEnd;
-    if (facility.intPayCycle === "At maturity" || facility.intPayCycle === "Bullet") {
-      periodEnd = new Date(maturity);
-    } else {
-      periodEnd = new Date(currentDate);
-      periodEnd.setDate(periodEnd.getDate() + cycleDays);
-      if (periodEnd > maturity) periodEnd = new Date(maturity);
+  for (let i = 1; i <= totalMonths; i++) {
+    let date = new Date(start);
+    date.setMonth(date.getMonth() + i);
+    let monthlyInterest = currentBalance * (rate / 100) / 12;
+    accumulatedInterest += monthlyInterest;
+    let principalDue = 0, interestDue = 0, isLastMonth = (i === totalMonths);
+
+    if ((intMonths > 0 && i % intMonths === 0) || (isLastMonth && facility.intPayCycle === 'Bullet')) {
+        interestDue = accumulatedInterest;
+        accumulatedInterest = 0;
     }
-
-    const daysInPeriod = Math.ceil((periodEnd - currentDate) / (1000 * 60 * 60 * 24));
-    let interest = 0;
-
-    if (moratoriumEnd && currentDate < moratoriumEnd) {
-      if (periodEnd <= moratoriumEnd) {
-        interest = 0;
-      } else {
-        const daysAfter = Math.ceil((periodEnd - moratoriumEnd) / (1000 * 60 * 60 * 24));
-        interest = outstanding * ratePerDay * daysAfter;
-      }
-    } else {
-      interest = outstanding * ratePerDay * daysInPeriod;
+    if ((repMonths > 0 && i % repMonths === 0) || (isLastMonth && facility.repCycle === 'Bullet')) {
+        principalDue = Math.min(principalPerPeriod, currentBalance);
+        if (isLastMonth) principalDue = currentBalance;
+        currentBalance -= principalDue;
     }
-
-    schedule.push({
-      periodStart: currentDate.toISOString().split('T')[0],
-      periodEnd: periodEnd.toISOString().split('T')[0],
-      days: daysInPeriod, outstanding, interest,
-    });
-    currentDate = periodEnd;
+    schedule.push({ date: date.toISOString().split('T')[0], principal: principalDue, interest: interestDue, balance: Math.max(0, currentBalance) });
   }
   return schedule;
-}
-export function exportToCSV(facilities) {
-  // 1. Define headers
-  const headers = ["Facility Name", "Bank", "Currency", "Limit", "Outstanding", "Status", "Maturity"];
-  
-  // 2. Map data to rows
-  const rows = facilities.map(f => {
-    const stats = calcStats(f, [{ code: "NGN", rate: 1 }, { code: "USD", rate: 1580 }]); // Simplified FX for export
-    return [
-      f.facilityName,
-      f.bank,
-      f.ccy,
-      f.limitF,
-      stats.outstanding,
-      f.status,
-      f.maturity
-    ];
-  });
-
-  // 3. Combine into a string
-  const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-
-  // 4. Create a hidden link and "click" it to download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", `Debt_Portfolio_${new Date().toISOString().split('T')[0]}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
 }

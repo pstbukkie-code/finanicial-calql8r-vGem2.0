@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { S, mkbtn, Badge, Modal, ConfirmModal } from "./ui.jsx";
-import { fmtN, fmtFull, daysBetween, calcStats, calcDrawdownSubsidiaryStats, generateInterestSchedule } from "./utils";
+import { fmtN, fmtFull, daysBetween, calcStats, calcDrawdownSubsidiaryStats, generateInterestSchedule,generateRepaymentSchedule } from "./utils";
 
 
 // --- Currency Manager ---
@@ -425,35 +425,32 @@ export function FacilityDetailModal({ facility, currencies, onClose }) {
           </div>{' '}
           {tab === 'repayment-schedule' && (
             <table style={S.table}>
-              {' '}
               <thead>
                 <tr>
-                  <th style={S.th}>Drawdown Date</th>
-                  <th style={S.th}>Amount</th>
-                  <th style={S.th}>Repaid</th>
-                  <th style={S.th}>Outstanding</th>
+                  <th style={S.th}>Payment Date</th>
+                  <th style={S.th}>Principal Due</th>
+                  <th style={S.th}>Interest Due</th>
+                  <th style={S.th}>Balance</th>
                 </tr>
-              </thead>{' '}
+              </thead>
               <tbody>
-                {' '}
-                {repaymentSchedule.map((d, idx) => (
-                  <tr key={idx}>
-                    <td style={S.td}>{d.date}</td>{' '}
-                    <td style={S.td}>{fmtN(d.amount, sym)}</td>{' '}
-                    <td style={S.td}>{fmtN(d.repaid, sym)}</td>{' '}
-                    <td
-                      style={{
-                        ...S.td,
-                        color: d.outstanding > 0 ? '#f59e0b' : '#22c55e',
-                      }}
-                    >
-                      {fmtN(d.outstanding, sym)}
-                    </td>{' '}
-                  </tr>
-                ))}{' '}
-              </tbody>{' '}
+                {(() => {
+                  // Uses the new function to generate the projection
+                  const schedule = generateRepaymentSchedule(facility);
+                  return schedule.map((s, idx) => (
+                    <tr key={idx}>
+                      <td style={S.td}>{s.date}</td>
+                      <td style={S.td}>{fmtN(s.principal, sym)}</td>
+                      <td style={S.td}>{fmtN(s.interest, sym)}</td>
+                      <td style={{ ...S.td, color: s.balance > 0 ? '#f59e0b' : '#22c55e' }}>
+                        {fmtN(s.balance, sym)}
+                      </td>
+                    </tr>
+                  ));
+                })()}
+              </tbody>
             </table>
-          )}{' '}
+          )}
           {tab === 'repayment-history' && (
             <table style={S.table}>
               {' '}
