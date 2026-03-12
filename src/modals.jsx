@@ -640,38 +640,34 @@ export function FacilityDetailModal({ facility, currencies, onClose }) {
           >
             <span style={{ color: '#8aa3be' }}>Borrowing Cost Breakdown</span>{' '}
             <table style={{ width: '100%', marginTop: 8 }}>
-              {' '}
               <tbody>
-                {' '}
                 <tr>
                   <td>Interest</td>
-                  <td>{fmtN(stats.interest, sym)}</td>
-                </tr>{' '}
+                  <td>{fmtN(stats.interest || 0, sym)}</td>
+                </tr>
                 <tr>
                   <td>Management Fee</td>
-                  <td>{fmtN(stats.mgmtFeeAmount, sym)}</td>
-                </tr>{' '}
+                  <td>{fmtN(stats.mgmtFeeAmount || 0, sym)}</td>
+                </tr>
                 <tr>
                   <td>Commitment Fee</td>
-                  <td>{fmtN(stats.commitFeeAmount, sym)}</td>
-                </tr>{' '}
+                  <td>{fmtN(stats.commitFeeAmount || 0, sym)}</td>
+                </tr>
                 <tr>
-                  <td>
-                    <strong>Total</strong>
-                  </td>
+                  <td><strong>Total</strong></td>
                   <td>
                     <strong>
                       {fmtN(
-                        stats.mgmtFeeAmount +
-                          stats.commitFeeAmount +
-                          stats.interest,
+                        (stats.mgmtFeeAmount || 0) +
+                        (stats.commitFeeAmount || 0) +
+                        (stats.interest || 0),
                         sym
                       )}
                     </strong>
                   </td>
-                </tr>{' '}
-              </tbody>{' '}
-            </table>{' '}
+                </tr>
+              </tbody>
+            </table>
           </div>{' '}
         </div>
       )}{' '}

@@ -40,7 +40,7 @@ export function InterestFeesPage({ facilities, currencies, displayCcy }) {
       interest: toDisplay(stats.interest, f.ccy),
       mgmtFee: toDisplay(stats.mgmtFeeAmount, f.ccy),
       commitFee: toDisplay(stats.commitFeeAmount, f.ccy),
-      totalFees: toDisplay(stats.totalFeesAmount, f.ccy),
+      totalFees: toDisplay(stats.totalFees || 0, f.ccy), // Changed from totalFeesAmount to totalFees
     });
   });
 

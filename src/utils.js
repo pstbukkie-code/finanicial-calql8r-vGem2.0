@@ -15,6 +15,25 @@ export const fmtPct = (n) => `${n.toFixed(2)}%`;
 export const daysBetween = (d1, d2) =>
   Math.ceil((new Date(d2) - new Date(d1)) / (1000 * 60 * 60 * 24));
 
+  // Add this back to src/utils.js
+export const formatTenure = (days) => {
+  if (days === null || days === 0) return "";
+  const totalMonths = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+  const remainingMonths = Math.floor((days % 365) / 30);
+  let result = `${days} day${days !== 1 ? "s" : ""}`;
+  if (days >= 30) {
+    result += ` / ${totalMonths} month${totalMonths !== 1 ? "s" : ""}`;
+  }
+  if (days >= 365) {
+    result += ` / ${years} year${years !== 1 ? "s" : ""}`;
+    if (remainingMonths > 0) {
+      result += `, ${remainingMonths} month${remainingMonths !== 1 ? "s" : ""}`;
+    }
+  }
+  return result;
+};
+
 export function calcStats(f, currencies, today = new Date()) {
   const fxRate = currencies.find((c) => c.code === f.ccy)?.rate || 1;
   const todayStr = today.toISOString().split("T")[0]; 
@@ -122,4 +141,102 @@ export function generateRepaymentSchedule(facility) {
     schedule.push({ date: date.toISOString().split('T')[0], principal: principalDue, interest: interestDue, balance: Math.max(0, currentBalance) });
   }
   return schedule;
+}
+// Function needed by pages.jsx to calculate individual subsidiary statistics
+export function calcDrawdownSubsidiaryStats(drawdown, masterRate, today = new Date()) {
+  const rate = drawdown.interestRateOverride ?? (masterRate + (drawdown.marginApplied ? drawdown.marginRate : 0));
+  const outstanding = drawdown.amount - (drawdown.subsidiaryRepaid || 0);
+  const days = Math.max(0, daysBetween(drawdown.date, today.toISOString().split("T")[0]));
+  const interest = (outstanding * rate / 100) * days / 365;
+  return { outstanding, interest };
+}
+
+// Restores the missing export for generating the interest schedule
+export function generateInterestSchedule(facility, today = new Date()) {
+  const schedule = [];
+  const start = new Date(facility.startDate);
+  const maturity = new Date(facility.maturity);
+  if (isNaN(start) || isNaN(maturity)) return [];
+
+  const cycleMap = {
+    "Daily": 1, "Monthly": 30, "Quarterly": 91, "Semi-Annual": 182, "Annual": 365, "At maturity": null, "Bullet": null,
+  };
+  const cycleDays = cycleMap[facility.intPayCycle] || 30; 
+  const effectiveRate = (facility.boardRate || 0) + (facility.sofrRate || 0) + (facility.otherRate || 0);
+  const ratePerDay = effectiveRate / 100 / 365;
+
+  let moratoriumEnd = null;
+  if (facility.moratoriumValue > 0 && facility.moratoriumUnit !== "None") {
+    const moratoriumDays = facility.moratoriumValue * (facility.moratoriumUnit === "Days" ? 1 : facility.moratoriumUnit === "Months" ? 30 : 365);
+    moratoriumEnd = new Date(start);
+    moratoriumEnd.setDate(moratoriumEnd.getDate() + moratoriumDays);
+  }
+
+  let outstanding = facility.facilityAmount;
+  let currentDate = new Date(start);
+
+  while (currentDate < maturity && outstanding > 0) {
+    let periodEnd;
+    if (facility.intPayCycle === "At maturity" || facility.intPayCycle === "Bullet") {
+      periodEnd = new Date(maturity);
+    } else {
+      periodEnd = new Date(currentDate);
+      periodEnd.setDate(periodEnd.getDate() + cycleDays);
+      if (periodEnd > maturity) periodEnd = new Date(maturity);
+    }
+
+    const daysInPeriod = Math.ceil((periodEnd - currentDate) / (1000 * 60 * 60 * 24));
+    let interest = 0;
+
+    if (moratoriumEnd && currentDate < moratoriumEnd) {
+      if (periodEnd <= moratoriumEnd) {
+        interest = 0;
+      } else {
+        const daysAfter = Math.ceil((periodEnd - moratoriumEnd) / (1000 * 60 * 60 * 24));
+        interest = outstanding * ratePerDay * daysAfter;
+      }
+    } else {
+      interest = outstanding * ratePerDay * daysInPeriod;
+    }
+
+    schedule.push({
+      periodStart: currentDate.toISOString().split('T')[0],
+      periodEnd: periodEnd.toISOString().split('T')[0],
+      days: daysInPeriod, outstanding, interest,
+    });
+    currentDate = periodEnd;
+  }
+  return schedule;
+}
+export function exportToCSV(facilities) {
+  // 1. Define headers
+  const headers = ["Facility Name", "Bank", "Currency", "Limit", "Outstanding", "Status", "Maturity"];
+  
+  // 2. Map data to rows
+  const rows = facilities.map(f => {
+    // Note: FX rates here are simplified for export purposes
+    const stats = calcStats(f, [{ code: "NGN", rate: 1 }, { code: "USD", rate: 1580 }]); 
+    return [
+      f.facilityName,
+      f.bank,
+      f.ccy,
+      f.limitF,
+      stats.outstanding,
+      f.status,
+      f.maturity
+    ];
+  });
+
+  // 3. Combine into a string
+  const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+
+  // 4. Create a hidden link and "click" it to download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `Debt_Portfolio_${new Date().toISOString().split('T')[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
