@@ -85,22 +85,26 @@ export function BanksSubsidiariesManager({ banks, setBanks, subsidiaries, setSub
   const [newBank, setNewBank] = useState('');
   const [newSubsidiary, setNewSubsidiary] = useState('');
 
+  // SAFETY CHECK: Force these to be arrays even if local storage is corrupted
+  const safeBanks = Array.isArray(banks) ? banks : [];
+  const safeSubsidiaries = Array.isArray(subsidiaries) ? subsidiaries : [];
+
   const addBank = () => {
-    if (newBank && !banks.includes(newBank)) {
-      setBanks([...banks, newBank].sort());
+    if (newBank && !safeBanks.includes(newBank)) {
+      setBanks([...safeBanks, newBank].sort());
       setNewBank('');
     }
   };
 
   const addSubsidiary = () => {
-    if (newSubsidiary && !subsidiaries.includes(newSubsidiary)) {
-      setSubsidiaries([...subsidiaries, newSubsidiary].sort());
+    if (newSubsidiary && !safeSubsidiaries.includes(newSubsidiary)) {
+      setSubsidiaries([...safeSubsidiaries, newSubsidiary].sort());
       setNewSubsidiary('');
     }
   };
 
-  const removeBank = (bank) => setBanks(banks.filter((b) => b !== bank));
-  const removeSubsidiary = (sub) => setSubsidiaries(subsidiaries.filter((s) => s !== sub));
+  const removeBank = (bank) => setBanks(safeBanks.filter((b) => b !== bank));
+  const removeSubsidiary = (sub) => setSubsidiaries(safeSubsidiaries.filter((s) => s !== sub));
 
   return (
     <Modal
@@ -113,7 +117,7 @@ export function BanksSubsidiariesManager({ banks, setBanks, subsidiaries, setSub
         <div>
           <h4 style={{ color: '#e8f0fe', fontWeight: 'bold', marginBottom: 8 }}>Banks</h4>
           <ul style={{ margin: 0, padding: 0, listStyle: 'none', maxHeight: 200, overflowY: 'auto' }}>
-            {banks.map((b) => (
+            {safeBanks.map((b) => (
               <li
                 key={b}
                 style={{
@@ -157,7 +161,7 @@ export function BanksSubsidiariesManager({ banks, setBanks, subsidiaries, setSub
         <div>
           <h4 style={{ color: '#e8f0fe', fontWeight: 'bold', marginBottom: 8 }}>Subsidiaries</h4>
           <ul style={{ margin: 0, padding: 0, listStyle: 'none', maxHeight: 200, overflowY: 'auto' }}>
-            {subsidiaries.map((s) => (
+            {safeSubsidiaries.map((s) => (
               <li
                 key={s}
                 style={{
