@@ -300,7 +300,7 @@ export function FacilityDetailModal({ facility, currencies, onClose }) {
                   'Amount',
                   'Repaid',
                   'Outstanding',
-                  'BU',
+                  'Subsidiary',
                   'Rate',
                   'Margin?',
                   'Sub‑Facility',
@@ -2221,19 +2221,19 @@ export function DrawdownModal({
   onClose,
   onDrawdown,
   savedSubsidiaries,
-  onAddBU,
+  onAddSubsidiary,
 }) {
   const [amount, setAmount] = useState('');
   const [purpose, setPurpose] = useState('');
   const [day, setDay] = useState(new Date().getDate());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [subsidiary, setBuDept] = useState('');
+  const [subsidiary, setSubsidiary] = useState('');
   const [marginApplied, setMarginApplied] = useState(false);
   const [marginRate, setMarginRate] = useState('');
   const [subFacility, setSubFacility] = useState('primary');
-  const [showNewBU, setShowNewBU] = useState(false);
-  const [newBUName, setNewBUName] = useState('');
+  const [showNewSubsidiary, setShowNewSubsidiary] = useState(false);
+  const [newSubsidiaryName, setNewSubsidiaryName] = useState('');
 
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -2254,7 +2254,7 @@ export function DrawdownModal({
           facility.ccy === 'NGN' ? '₦' : '$'
         )}`
       );
-    if (!subsidiary) return alert('Select Business Unit/Department.');
+    if (!subsidiary) return alert('Select a subsidiary.');
     let yearVal = year;
     if (year === 'Custom') {
       const custom = prompt('Enter custom year (e.g., 2025):');
@@ -2271,7 +2271,7 @@ export function DrawdownModal({
       amount: amt,
       purpose,
       repaid: 0,
-      subsidiary,
+      subsidiary,                    // <-- use subsidiary field
       interestRateOverride: null,
       marginApplied,
       marginRate: margin,
@@ -2279,14 +2279,15 @@ export function DrawdownModal({
     });
     onClose();
   };
+
   const sym = facility.ccy === 'NGN' ? '₦' : '$';
+
   return (
     <Modal
       title={`New Drawdown — ${facility.bank}`}
       onClose={onClose}
       width={500}
     >
-      {' '}
       <div
         style={{
           display: 'grid',
@@ -2298,92 +2299,87 @@ export function DrawdownModal({
           marginBottom: 10,
         }}
       >
-        {' '}
         <div>
-          {' '}
           <div style={{ fontSize: 10, color: '#8aa3be' }}>
-            LIMIT ({facility.ccy}){' '}
-          </div>{' '}
+            LIMIT ({facility.ccy})
+          </div>
           <strong style={{ color: '#c9a84c' }}>
-            {fmtN(facility.limitF, sym)}{' '}
-          </strong>{' '}
-        </div>{' '}
+            {fmtN(facility.limitF, sym)}
+          </strong>
+        </div>
         <div>
-          {' '}
           <div style={{ fontSize: 10, color: '#8aa3be' }}>
-            AVAILABLE ({facility.ccy}){' '}
-          </div>{' '}
+            AVAILABLE ({facility.ccy})
+          </div>
           <strong style={{ color: '#22c55e' }}>
-            {fmtN(stats.available, sym)}{' '}
-          </strong>{' '}
-        </div>{' '}
+            {fmtN(stats.available, sym)}
+          </strong>
+        </div>
       </div>
-      <label style={S.lbl}>Amount ({facility.ccy}) *</label>{' '}
+
+      <label style={S.lbl}>Amount ({facility.ccy}) *</label>
       <input
         type="number"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
         style={S.inp}
       />
-      <label style={S.lbl}>Purpose</label>{' '}
+
+      <label style={S.lbl}>Purpose</label>
       <input
         value={purpose}
         onChange={(e) => setPurpose(e.target.value)}
         style={S.inp}
       />
-      <label style={S.lbl}>Value Date</label>{' '}
+
+      <label style={S.lbl}>Value Date</label>
       <div style={{ display: 'flex', gap: 4 }}>
-        {' '}
         <select
           value={day}
           onChange={(e) => setDay(parseInt(e.target.value))}
           style={{ width: 70, ...S.inp }}
         >
-          {' '}
           {days.map((d) => (
             <option key={d} value={d}>
-              {d}{' '}
+              {d}
             </option>
-          ))}{' '}
-        </select>{' '}
+          ))}
+        </select>
         <select
           value={month}
           onChange={(e) => setMonth(parseInt(e.target.value))}
           style={{ width: 80, ...S.inp }}
         >
-          {' '}
           {months.map((m) => (
             <option key={m} value={m}>
-              {m}{' '}
+              {m}
             </option>
-          ))}{' '}
-        </select>{' '}
+          ))}
+        </select>
         <select
           value={year}
           onChange={(e) => setYear(e.target.value)}
           style={{ width: 90, ...S.inp }}
         >
-          {' '}
           {years.map((y) => (
             <option key={y} value={y}>
-              {y}{' '}
+              {y}
             </option>
-          ))}{' '}
-        </select>{' '}
-      </div>{' '}
+          ))}
+        </select>
+      </div>
+
       <div style={{ marginTop: 10 }}>
-        {' '}
         <label
           style={{ display: 'flex', alignItems: 'center', gap: 8, ...S.lbl }}
         >
-          {' '}
           <input
             type="checkbox"
             checked={marginApplied}
             onChange={(e) => setMarginApplied(e.target.checked)}
           />
-          Apply margin{' '}
-        </label>{' '}
+          Apply margin
+        </label>
         {marginApplied && (
           <input
             type="number"
@@ -2393,8 +2389,9 @@ export function DrawdownModal({
             placeholder="Margin %"
             style={{ marginTop: 4, ...S.inp }}
           />
-        )}{' '}
-      </div>{' '}
+        )}
+      </div>
+
       {facility.isMulti && (
         <>
           <label style={S.lbl}>Sub‑Facility</label>
@@ -2408,57 +2405,57 @@ export function DrawdownModal({
           </select>
         </>
       )}
-      <label style={S.lbl}>Business Unit *</label>{' '}
-      {showNewBU ? (
+
+      <label style={S.lbl}>Subsidiary *</label>
+      {showNewSubsidiary ? (
         <div style={{ display: 'flex', gap: 6 }}>
-          {' '}
           <input
-            value={newBUName}
-            onChange={(e) => setNewBUName(e.target.value)}
+            value={newSubsidiaryName}
+            onChange={(e) => setNewSubsidiaryName(e.target.value)}
             style={{ flex: 1, ...S.inp }}
             autoFocus
-          />{' '}
+          />
           <button
             onClick={() => {
-              onAddBU(newBUName);
-              setBuDept(newBUName);
-              setNewBUName('');
-              setShowNewBU(false);
+              onAddSubsidiary(newSubsidiaryName);
+              setSubsidiary(newSubsidiaryName);
+              setNewSubsidiaryName('');
+              setShowNewSubsidiary(false);
             }}
             style={mkbtn('#22c55e', '#fff', 'sm')}
           >
-            ADD{' '}
-          </button>{' '}
+            ADD
+          </button>
           <button
-            onClick={() => setShowNewBU(false)}
+            onClick={() => setShowNewSubsidiary(false)}
             style={mkbtn('#1e3a5f', '#8aa3be', 'sm')}
           >
-            ✕{' '}
-          </button>{' '}
+            ✕
+          </button>
         </div>
       ) : (
         <div style={{ display: 'flex', gap: 6 }}>
-          {' '}
           <select
             value={subsidiary}
-            onChange={(e) => setBuDept(e.target.value)}
+            onChange={(e) => setSubsidiary(e.target.value)}
             style={{ flex: 1, ...S.inp }}
           >
-            <option value="">-- Select BU --</option>{' '}
-            {savedSubsidiaries.map((b) => (
-              <option key={b} value={b}>
-                {b}{' '}
+            <option value="">-- Select Subsidiary --</option>
+            {savedSubsidiaries.map((s) => (
+              <option key={s} value={s}>
+                {s}
               </option>
-            ))}{' '}
-          </select>{' '}
+            ))}
+          </select>
           <button
-            onClick={() => setShowNewBU(true)}
+            onClick={() => setShowNewSubsidiary(true)}
             style={mkbtn('#c9a84c', '#0a1520', 'sm')}
           >
-            + New BU{' '}
-          </button>{' '}
+            + New Subsidiary
+          </button>
         </div>
-      )}{' '}
+      )}
+
       <button
         onClick={submit}
         style={{
@@ -2469,8 +2466,8 @@ export function DrawdownModal({
           fontSize: 13,
         }}
       >
-        CONFIRM DRAWDOWN{' '}
-      </button>{' '}
+        CONFIRM DRAWDOWN
+      </button>
     </Modal>
   );
 }

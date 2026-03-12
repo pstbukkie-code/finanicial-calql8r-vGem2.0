@@ -1235,7 +1235,7 @@ export default function App() {
                 <thead>
                   {' '}
                   <tr>
-                    <th style={S.th}>BU/Dept</th>{' '}
+                    <th style={S.th}>Subsidiary</th>{' '}
                     <th style={S.th}># Facilities</th>{' '}
                     <th style={S.th}>Total Drawn</th>{' '}
                     <th style={S.th}>Repaid</th>{' '}
@@ -1354,10 +1354,10 @@ export default function App() {
                   💱 Manage Currencies{' '}
                 </button>{' '}
                 <button
-                  onClick={() => setModal({ type: 'banksBus' })}
+                  onClick={() => setModal({ type: 'banksSubsidiaries' })}
                   style={mkbtn('#1e3a5f', '#c9a84c')}
                 >
-                  🏦 Manage Banks/BUs{' '}
+                  🏦 Manage Banks/Subsidiaries{' '}
                 </button>{' '}
               </div>{' '}
             </div>
