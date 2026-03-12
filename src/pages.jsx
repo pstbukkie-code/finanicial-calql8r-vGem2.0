@@ -333,12 +333,11 @@ export function DrawdownDetailModal({
     if (!amt || amt <= 0) return alert('Enter a valid amount.');
     if (repayType === 'principal' && amt > stats.outstanding)
       return alert('Exceeds outstanding principal.');
-    // Interest repayment not implemented yet
-    if (repayType === 'interest') {
-      alert('Interest repayment not yet implemented.');
-      return;
-    }
-    onRepay(drawdown.id, amt);
+    if (repayType === 'interest' && amt > stats.interest)
+      return alert('Exceeds accrued interest.');
+      
+    // Pass the type along so the app knows how to handle it
+    onRepay(drawdown.id, amt, repayType);
     onClose();
   };
 
@@ -643,13 +642,6 @@ export function FacilityCard({
               gap: 12,
             }}
           >
-            {' '}
-            <div>
-              <span style={{ fontSize: 12, color: '#8aa3be' }}>Limit</span>{' '}
-              <div style={{ fontSize: 16, fontFamily: 'monospace' }}>
-                {fmtN(f.limitF, sym)}{' '}
-              </div>{' '}
-            </div>{' '}
             <div>
               <span style={{ fontSize: 12, color: '#8aa3be' }}>Loan Amt</span>{' '}
               <div style={{ fontSize: 16, fontFamily: 'monospace' }}>
@@ -713,7 +705,7 @@ export function FacilityCard({
             <div>
               {' '}
               <span style={{ fontSize: 12, color: '#8aa3be' }}>
-                Remaining
+                Unpaid Balance
               </span>{' '}
               <div
                 style={{
@@ -839,8 +831,10 @@ export function PerformancePage({ facilities, currencies, displayCcy }) {
                 : principalPaid > 0
                 ? 'Partial'
                 : 'Outstanding';
-            const interestDue = stats.interest; // simplified
-            const interestPaid = 0; // need repayment history
+                const interestDue = stats.interest; // simplified
+                const interestPaid = (f.repayments || [])
+                  .filter(r => r.type === 'interest')
+                  .reduce((sum, r) => sum + r.amount, 0);
             const interestStatus =
               interestPaid >= interestDue
                 ? 'Paid'

@@ -465,14 +465,24 @@ export function FacilityDetailModal({ facility, currencies, onClose }) {
                 </tr>
               </thead>{' '}
               <tbody>
-                {' '}
-                {/* This would need a repayment history array in facility; for now placeholder */}{' '}
-                <tr>
-                  <td style={S.td} colSpan={3}>
-                    No repayment history yet
-                  </td>
-                </tr>{' '}
-              </tbody>{' '}
+                {facility.repayments && facility.repayments.length > 0 ? (
+                  facility.repayments.map((r, idx) => (
+                    <tr key={idx}>
+                      <td style={S.td}>{r.date}</td>
+                      <td style={S.td}>{fmtN(r.amount, sym)}</td>
+                      <td style={{ ...S.td, textTransform: 'capitalize' }}>
+                        {r.type === 'principal' ? '🏦 Principal' : '📈 Interest'}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} style={{ ...S.td, textAlign: 'center', color: '#8aa3be', padding: '16px' }}>
+  No repayment history yet
+</td>
+                  </tr>
+                )}
+              </tbody>
             </table>
           )}{' '}
         </>
@@ -493,10 +503,6 @@ export function FacilityDetailModal({ facility, currencies, onClose }) {
           <div style={{ background: '#0a1520', padding: 12, borderRadius: 8 }}>
             <span style={{ color: '#8aa3be' }}>Currency</span>{' '}
             <div>{facility.ccy}</div>{' '}
-          </div>{' '}
-          <div style={{ background: '#0a1520', padding: 12, borderRadius: 8 }}>
-            <span style={{ color: '#8aa3be' }}>Limit</span>{' '}
-            <div>{fmtN(facility.limitF, sym)}</div>{' '}
           </div>{' '}
           <div style={{ background: '#0a1520', padding: 12, borderRadius: 8 }}>
             <span style={{ color: '#8aa3be' }}>Loan Amount</span>{' '}
@@ -997,8 +1003,6 @@ export function FacilityFormWizard({
     if (s === 1) {
       if (!f.bank) err.bank = 'Bank is required';
       if (!f.facilityName) err.facilityName = 'Facility Name is required';
-      if (!f.limitF || parseFloat(f.limitF) <= 0)
-        err.limitF = 'Limit must be a positive number';
       if (!f.facilityAmount || parseFloat(f.facilityAmount) <= 0)
         err.facilityAmount = 'Facility amount must be positive'; // For multi‑facility, the sum of both facility amounts cannot exceed the limit
       if (facilityType === 'multi') {
@@ -1081,8 +1085,8 @@ export function FacilityFormWizard({
     );
     onSave({
       ...f,
-      limitF: parseFloat(f.limitF || 0),
-      facilityAmount: parseFloat(f.facilityAmount || f.limitF || 0),
+      limitF: parseFloat(f.facilityAmount || 0), // Keeps background math working
+      facilityAmount: parseFloat(f.facilityAmount || 0),
       boardRate: parseFloat(f.boardRate) || 0, // keep base rate
       mgmtFee: parseFloat(f.mgmtFee || 0),
       commitFee: parseFloat(f.commitFee || 0),
@@ -1264,23 +1268,6 @@ export function FacilityFormWizard({
               </label>{' '}
             </div>{' '}
           </div>{' '}
-          <div>
-            <label style={S.lbl}>Obligor Limit ({f.ccy}) *</label>{' '}
-            <input
-              type="text"
-              value={formatNumber(f.limitF)}
-              onChange={(e) => {
-                const raw = parseNumber(e.target.value);
-                setF({ ...f, limitF: raw });
-              }}
-              style={S.inp}
-            />{' '}
-            {errors.limitF && (
-              <div style={{ color: '#ef4444', fontSize: 10 }}>
-                {errors.limitF}
-              </div>
-            )}
-          </div>
           <div>
             <label style={S.lbl}>Facility Amount ({f.ccy}) *</label>{' '}
             <input
@@ -1751,51 +1738,97 @@ export function FacilityFormWizard({
                 borderRadius: 8,
               }}
             >
-              {' '}
               <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                {' '}
                 <select
                   value={addRateType}
                   onChange={(e) => setAddRateType(e.target.value)}
                   style={{ flex: 1, ...S.inp }}
                 >
-                  <option value="sofr">SOFR</option>{' '}
-                  <option value="other">Other</option>{' '}
-                </select>{' '}
-              </div>{' '}
+                  <option value="sofr">SOFR</option>
+                  <option value="mpr">MPR</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              
               {addRateType === 'sofr' && (
+                <>
+                  <div style={{ textAlign: 'right', marginBottom: 4 }}>
+                    <a href="https://www.newyorkfed.org/markets/reference-rates/sofr" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#3b82f6', textDecoration: 'none' }}>
+                      Check current SOFR ↗
+                    </a>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="number"
+                      placeholder="Term"
+                      value={sofrTerm.value}
+                      onChange={(e) => setSofrTerm({ ...sofrTerm, value: e.target.value })}
+                      style={{ flex: 1, ...S.inp }}
+                    />
+                    <select
+                      value={sofrTerm.unit}
+                      onChange={(e) => setSofrTerm({ ...sofrTerm, unit: e.target.value })}
+                      style={{ flex: 1, ...S.inp }}
+                    >
+                      <option value="Days">Days</option>
+                      <option value="Months">Months</option>
+                      <option value="Years">Years</option>
+                    </select>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Rate %"
+                      value={sofrRate}
+                      onChange={(e) => setSofrRate(e.target.value)}
+                      style={{ flex: 1, ...S.inp }}
+                    />
+                  </div>
+                </>
+              )}
+
+              {addRateType === 'mpr' && (
+                <>
+                  <div style={{ textAlign: 'right', marginBottom: 4 }}>
+                    <a href="https://www.cbn.gov.ng/rates/mpr.asp" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#3b82f6', textDecoration: 'none' }}>
+                      Check current CBN MPR ↗
+                    </a>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="MPR Rate %"
+                      value={otherRate}
+                      onChange={(e) => {
+                        setOtherRate(e.target.value);
+                        setOtherRateName('MPR');
+                      }}
+                      style={{ flex: 1, ...S.inp }}
+                    />
+                  </div>
+                </>
+              )}
+
+              {addRateType === 'other' && (
                 <div style={{ display: 'flex', gap: 8 }}>
-                  {' '}
                   <input
-                    type="number"
-                    placeholder="Term"
-                    value={sofrTerm.value}
-                    onChange={(e) =>
-                      setSofrTerm({ ...sofrTerm, value: e.target.value })
-                    }
+                    type="text"
+                    placeholder="Rate name (e.g., 'Premium')"
+                    value={otherRateName}
+                    onChange={(e) => setOtherRateName(e.target.value)}
                     style={{ flex: 1, ...S.inp }}
-                  />{' '}
-                  <select
-                    value={sofrTerm.unit}
-                    onChange={(e) =>
-                      setSofrTerm({ ...sofrTerm, unit: e.target.value })
-                    }
-                    style={{ flex: 1, ...S.inp }}
-                  >
-                    <option value="Days">Days</option>{' '}
-                    <option value="Months">Months</option>{' '}
-                    <option value="Years">Years</option>{' '}
-                  </select>{' '}
+                  />
                   <input
                     type="number"
                     step="0.01"
                     placeholder="Rate %"
-                    value={sofrRate}
-                    onChange={(e) => setSofrRate(e.target.value)}
+                    value={otherRate}
+                    onChange={(e) => setOtherRate(e.target.value)}
                     style={{ flex: 1, ...S.inp }}
-                  />{' '}
+                  />
                 </div>
-              )}{' '}
+              )}
+
               {effectiveRate && (
                 <div
                   style={{
@@ -1806,45 +1839,16 @@ export function FacilityFormWizard({
                     borderRadius: 8,
                   }}
                 >
-                  {' '}
-                  <div
-                    style={{ fontSize: 12, color: '#8aa3be', marginBottom: 4 }}
-                  >
+                  <div style={{ fontSize: 12, color: '#8aa3be', marginBottom: 4 }}>
                     Effective Interest Rate
-                  </div>{' '}
-                  <div
-                    style={{
-                      fontSize: 24,
-                      fontWeight: 'bold',
-                      color: '#c9a84c',
-                    }}
-                  >
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 'bold', color: '#c9a84c' }}>
                     {effectiveRate}%
-                  </div>{' '}
+                  </div>
                 </div>
-              )}{' '}
-              {addRateType === 'other' && (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {' '}
-                  <input
-                    type="text"
-                    placeholder="Rate name (e.g., 'Premium')"
-                    value={otherRateName}
-                    onChange={(e) => setOtherRateName(e.target.value)}
-                    style={{ flex: 1, ...S.inp }}
-                  />{' '}
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Rate %"
-                    value={otherRate}
-                    onChange={(e) => setOtherRate(e.target.value)}
-                    style={{ flex: 1, ...S.inp }}
-                  />{' '}
-                </div>
-              )}{' '}
+              )}
             </div>
-          )}{' '}
+          )}
           <div>
             <label style={S.lbl}>Mgmt Fee (%)</label>{' '}
             <input
@@ -2305,10 +2309,10 @@ export function DrawdownModal({
       >
         <div>
           <div style={{ fontSize: 10, color: '#8aa3be' }}>
-            LIMIT ({facility.ccy})
+            LOAN AMOUNT ({facility.ccy})
           </div>
           <strong style={{ color: '#c9a84c' }}>
-            {fmtN(facility.limitF, sym)}
+            {fmtN(facility.facilityAmount, sym)}
           </strong>
         </div>
         <div>

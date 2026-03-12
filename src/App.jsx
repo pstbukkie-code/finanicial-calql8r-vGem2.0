@@ -254,7 +254,7 @@ export default function App() {
   const addFac = (f) => {
     setFacilities([
       ...facilities,
-      { ...f, id: 'F' + Date.now(), drawdowns: [] },
+      { ...f, id: 'F' + Date.now(), drawdowns: [], repayments: [] },
     ]);
   };
   const editFac = (u) =>
@@ -266,34 +266,45 @@ export default function App() {
         f.id === fid ? { ...f, drawdowns: [...f.drawdowns, d] } : f
       )
     );
-  const addRepay = (fid, amt, date, type) => {
-    setFacilities(
-      facilities.map((f) => {
-        if (f.id !== fid) return f;
-        const newDrawdowns = [...f.drawdowns].sort(
-          (a, b) => new Date(a.date) - new Date(b.date)
-        );
-        if (type === 'principal') {
-          let remaining = amt;
-          for (let d of newDrawdowns) {
-            const owed = d.amount - d.repaid;
-            if (owed > 0) {
-              const pay = Math.min(owed, remaining);
-              d.repaid += pay;
-              remaining -= pay;
-              if (remaining <= 0) break;
+    const addRepay = (fid, amt, date, type) => {
+      setFacilities(
+        facilities.map((f) => {
+          if (f.id !== fid) return f;
+          
+          // 1. Create the official ledger receipt
+          const newRepayment = {
+            id: 'R' + Date.now(),
+            date,
+            amount: amt,
+            type,
+          };
+  
+          const newDrawdowns = [...f.drawdowns].sort(
+            (a, b) => new Date(a.date) - new Date(b.date)
+          );
+          
+          // 2. If it's principal, apply FIFO logic to reduce the balances
+          if (type === 'principal') {
+            let remaining = amt;
+            for (let d of newDrawdowns) {
+              const owed = d.amount - d.repaid;
+              if (owed > 0) {
+                const pay = Math.min(owed, remaining);
+                d.repaid += pay;
+                remaining -= pay;
+                if (remaining <= 0) break;
+              }
             }
-          }
-        } else {
-          // interest repayment - we would need an interest paid tracking
-          // For simplicity, we'll store interest paid in a separate array, but that's complex.
-          // Placeholder: reduce interest accrual? We'll just alert.
-          alert('Interest repayment not yet implemented.');
-        }
-        return { ...f, drawdowns: newDrawdowns };
-      })
-    );
-  };
+          } 
+          // 3. Save the receipt to the facility's ledger
+          return { 
+            ...f, 
+            drawdowns: newDrawdowns,
+            repayments: [...(f.repayments || []), newRepayment] 
+          };
+        })
+      );
+    };
 
   const handleSubsidiaryRepay = (drawdownId, amount) => {
     setFacilities(
@@ -1416,7 +1427,7 @@ export default function App() {
           onClose={() => setModal(null)}
         />
       )}{' '}
-      {modal?.type === 'banksBus' && (
+      {modal?.type === 'banksSubsidiaries' && (
         <BanksSubsidiariesManager
           banks={savedBanks}
           setBanks={setSavedBanks}
