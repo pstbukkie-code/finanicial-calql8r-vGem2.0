@@ -586,7 +586,12 @@ export default function App() {
                       </button>
                       <label style={{ ...mkbtn('#1e293b'), cursor: 'pointer' }}>
                           📥 Import CSV
-                          <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: 'none' }} onChange={handleFileUpload} />
+                          <input
+                              type="file"
+                              accept=".csv"
+                              style={{ display: 'none' }}
+                              onChange={handleFileUpload}
+                          />
                       </label>
                       <button
                           onClick={() => setModal({ type: 'addFac' })}
