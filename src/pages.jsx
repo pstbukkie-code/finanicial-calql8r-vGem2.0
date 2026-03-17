@@ -44,10 +44,11 @@ export function InterestFeesPage({ facilities, currencies, displayCcy }) {
     });
   });
 
-  const totalInterest = rows.reduce((s, r) => s + r.interest, 0);
-  const totalMgmt = rows.reduce((s, r) => s + r.mgmtFee, 0);
-  const totalCommit = rows.reduce((s, r) => s + r.commitFee, 0);
-  const grandTotal = totalInterest + totalMgmt + totalCommit;
+    // Fix: Add (parseFloat(...) || 0) to every calculation
+    const totalInterest = rows.reduce((s, r) => s + (parseFloat(r.interest) || 0), 0);
+    const totalMgmt = rows.reduce((s, r) => s + (parseFloat(r.mgmtFee) || 0), 0);
+    const totalCommit = rows.reduce((s, r) => s + (parseFloat(r.commitFee) || 0), 0);
+    const grandTotal = totalInterest + totalMgmt + totalCommit;
 
   return (
     <div style={S.card}>
@@ -55,7 +56,6 @@ export function InterestFeesPage({ facilities, currencies, displayCcy }) {
       <div
         style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}
       >
-        {' '}
         <select
           value={filterBank}
           onChange={(e) => {

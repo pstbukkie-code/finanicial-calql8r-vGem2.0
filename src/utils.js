@@ -1,10 +1,12 @@
 // src/utils.js
 
 export const fmtN = (n, ccy = "") => {
-  if (Math.abs(n) >= 1e9) return `${ccy}${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `${ccy}${(n / 1e6).toFixed(2)}M`;
-  if (Math.abs(n) >= 1e3) return `${ccy}${(n / 1e3).toFixed(1)}K`;
-  return `${ccy}${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+    // Fix: If n is undefined or null, default to 0 to prevent toLocaleString crash
+    const num = n || 0;
+    if (Math.abs(num) >= 1e9) return `${ccy}${(num / 1e9).toFixed(2)}B`;
+    if (Math.abs(num) >= 1e6) return `${ccy}${(num / 1e6).toFixed(2)}M`;
+    if (Math.abs(num) >= 1e3) return `${ccy}${(num / 1e3).toFixed(1)}K`;
+    return `${ccy}${num.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 };
 
 export const fmtFull = (n, ccy = "") =>
@@ -208,35 +210,53 @@ export function generateInterestSchedule(facility, today = new Date()) {
   }
   return schedule;
 }
+// src/utils.js
+
 export function exportToCSV(facilities) {
-  // 1. Define headers
-  const headers = ["Facility Name", "Bank", "Currency", "Limit", "Outstanding", "Status", "Maturity"];
-  
-  // 2. Map data to rows
-  const rows = facilities.map(f => {
-    // Note: FX rates here are simplified for export purposes
-    const stats = calcStats(f, [{ code: "NGN", rate: 1 }, { code: "USD", rate: 1580 }]); 
-    return [
-      f.facilityName,
-      f.bank,
-      f.ccy,
-      f.limitF,
-      stats.outstanding,
-      f.status,
-      f.maturity
+    // Define all keys used in your Facility Wizard
+    const headers = [
+        "facilityName", "bank", "facilityClass", "ccy", "facilityAmount",
+        "facilityAmount2", "boardRate", "boardRate2", "mgmtFee", "commitFee",
+        "intPayCycle", "repCycle", "status", "startDate", "maturity"
     ];
-  });
 
-  // 3. Combine into a string
-  const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    // Create rows by mapping headers to facility object values
+    const rows = facilities.map(f => headers.map(h => f[h] || ""));
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
 
-  // 4. Create a hidden link and "click" it to download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", `Debt_Portfolio_${new Date().toISOString().split('T')[0]}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Debt_Portfolio_Full_Export.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+export function parseCSV(text) {
+    const lines = text.split("\n").filter(l => l.trim() !== "");
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(",");
+
+    return lines.slice(1).map(line => {
+        const values = line.split(",");
+        const obj = {
+            id: 'F' + Date.now() + Math.random().toString(36).substr(2, 5),
+            drawdowns: [],
+            repayments: []
+        };
+
+        headers.forEach((header, i) => {
+            let val = values[i]?.trim();
+            // Convert numbers, but leave dates as strings
+            if (!isNaN(val) && val !== "" && !header.toLowerCase().includes("date") && header !== "maturity") {
+                obj[header] = parseFloat(val);
+            } else {
+                obj[header] = val;
+            }
+        });
+        return obj;
+    });
 }

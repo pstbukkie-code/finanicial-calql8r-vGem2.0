@@ -23,6 +23,7 @@ import {
   calcDrawdownSubsidiaryStats,
   generateInterestSchedule,
   exportToCSV,
+  parseCSV,
 } from './utils';
 import {
   defaultBanks,
@@ -288,6 +289,16 @@ export default function App() {
 
             return [...updatedPrev, newFac];
         });
+    };
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const imported = parseCSV(evt.target.result);
+            setFacilities(prev => [...prev, ...imported]);
+        };
+        reader.readAsText(file);
     };
     const addRepay = (fid, amt, date, type) => {
       setFacilities(
@@ -569,53 +580,21 @@ export default function App() {
             justifyContent: 'space-between',
           }}
         >
-          {' '}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {' '}
-            <span
-              style={{ fontSize: 18, fontWeight: 'bold', color: '#c9a84c' }}
-            >
-              Short-Term Facilities{' '}
-            </span>{' '}
-            {activeTab === 'facilities' && (
-              <>
-                {' '}
-                <button 
-  onClick={() => exportToCSV(facilities)} 
-  style={{ ...mkbtn("#1e3a5f", "#8aa3be"), marginRight: 8 }}
->
-  📥 EXPORT CSV
-</button>
-                <button
-                  onClick={() => setModal({ type: 'addFac' })}
-                  style={mkbtn(
-                    'linear-gradient(135deg,#c9a84c,#e8c96a)',
-                    '#0a1520'
-                  )}
-                >
-                  + ADD FACILITY{' '}
-                </button>{' '}
-                <label
-                  style={{
-                    ...mkbtn('#1e3a5f', '#c9a84c', 'sm'),
-                    display: 'inline-block',
-                    cursor: 'pointer',
-                  }}
-                >
-                  📥 Import CSV{' '}
-                  <input
-                    type="file"
-                    accept=".csv"
-                    style={{ display: 'none' }}
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) setModal({ type: 'importCSV', file });
-                    }}
-                  />{' '}
-                </label>{' '}
-              </>
-            )}{' '}
-          </div>{' '}
+          <div style={{ display: 'flex', gap: 10 }}>
+                      <button onClick={() => exportToCSV(facilities)} style={mkbtn('#1e293b')}>
+                          📤 Export CSV
+                      </button>
+                      <label style={{ ...mkbtn('#1e293b'), cursor: 'pointer' }}>
+                          📥 Import CSV
+                          <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: 'none' }} onChange={handleFileUpload} />
+                      </label>
+                      <button
+                          onClick={() => setModal({ type: 'addFac' })}
+                          style={mkbtn('#c9a84c', '#0a1520')}
+                      >
+                          + ADD FACILITY
+                      </button>
+                  </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {' '}
             <select
