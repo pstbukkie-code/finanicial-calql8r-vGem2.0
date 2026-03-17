@@ -784,7 +784,7 @@ export function FacilityCard({
           >
             ✏️ Edit
                   </button>
-                  {f.daysToMat <= 30 && f.status === 'Active' && (
+                  {f.status === 'Active' && (
                       <button
                           onClick={() => setModal({ type: 'renew', facilityId: f.id })}
                           style={mkbtn('#c9a84c', '#0a1520')}
