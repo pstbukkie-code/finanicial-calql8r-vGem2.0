@@ -2932,3 +2932,45 @@ export function ScenarioModal({
     </Modal>
   );
 }
+export function RenewalModal({ facility, onRenew, onClose }) {
+    const [newMaturity, setNewMaturity] = useState('');
+    const [newRate, setNewRate] = useState(facility.boardRate);
+
+    const handleConfirm = () => {
+        if (!newMaturity) return alert("Please select a new maturity date.");
+
+        onRenew(facility.id, {
+            startDate: new Date().toISOString().split('T')[0],
+            maturity: newMaturity,
+            boardRate: parseFloat(newRate)
+        });
+        onClose();
+    };
+
+    return (
+        <Modal title={`Renew Facility: ${facility.facilityName}`} onClose={onClose} width={400}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <p style={{ fontSize: 13, color: '#8aa3be' }}>
+                    This will close the current facility and create a new one with the carried-over balance.
+                </p>
+                <label style={S.lbl}>New Board Rate (%)</label>
+                <input
+                    type="number"
+                    value={newRate}
+                    onChange={(e) => setNewRate(e.target.value)}
+                    style={S.inp}
+                />
+                <label style={S.lbl}>New Maturity Date</label>
+                <input
+                    type="date"
+                    value={newMaturity}
+                    onChange={(e) => setNewMaturity(e.target.value)}
+                    style={S.inp}
+                />
+                <button onClick={handleConfirm} style={mkbtn('#c9a84c', '#0a1520')}>
+                    CONFIRM RENEWAL
+                </button>
+            </div>
+        </Modal>
+    );
+}

@@ -47,7 +47,8 @@ import {
   FacilityFormWizard,
   DrawdownModal,
   RepayModal,
-  ScenarioModal,
+    ScenarioModal,
+    RenewalModal,
 } from './modals';
 
 // --- Date/Time Hook ---
@@ -265,7 +266,29 @@ export default function App() {
       facilities.map((f) =>
         f.id === fid ? { ...f, drawdowns: [...f.drawdowns, d] } : f
       )
-    );
+        );
+    const renewFac = (oldId, renewalData) => {
+        setFacilities(prev => {
+            const oldFac = prev.find(f => f.id === oldId);
+            // 1. Mark the old facility as "Renewed"
+            const updatedPrev = prev.map(f =>
+                f.id === oldId ? { ...f, status: 'Renewed', remarks: (f.remarks || "") + `\nRenewed on ${renewalData.startDate}` } : f
+            );
+
+            // 2. Create the new facility entry carrying over history
+            const newFac = {
+                ...oldFac,
+                ...renewalData,
+                id: 'F' + Date.now(),
+                status: 'Active',
+                drawdowns: oldFac.drawdowns,
+                repayments: oldFac.repayments,
+                remarks: `Renewal of facility ${oldFac.facilityName}`
+            };
+
+            return [...updatedPrev, newFac];
+        });
+    };
     const addRepay = (fid, amt, date, type) => {
       setFacilities(
         facilities.map((f) => {
@@ -1402,7 +1425,14 @@ export default function App() {
           onAddBank={addBank}
           currencies={currencies}
         />
-      )}{' '}
+          )}
+          {modal?.type === 'renew' && selFac && (
+              <RenewalModal
+                  facility={selFac}
+                  onRenew={renewFac}
+                  onClose={() => setModal(null)}
+              />
+          )}
       {modal?.type === 'drawdown' && selFac && (
         <DrawdownModal
           facility={selFac}

@@ -782,8 +782,16 @@ export function FacilityCard({
             onClick={() => setModal({ type: 'editFac', facilityId: f.id })}
             style={mkbtn('#374151', '#fbbf24')}
           >
-            ✏️ Edit{' '}
-          </button>{' '}
+            ✏️ Edit
+                  </button>
+                  {f.daysToMat <= 30 && f.status === 'Active' && (
+                      <button
+                          onClick={() => setModal({ type: 'renew', facilityId: f.id })}
+                          style={mkbtn('#c9a84c', '#0a1520')}
+                      >
+                          ♻️ Renew
+                      </button>
+                  )}
           <button
             onClick={() =>
               setConfirm({
