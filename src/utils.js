@@ -12,7 +12,11 @@ export const fmtN = (n, ccy = "") => {
 export const fmtFull = (n, ccy = "") =>
   `${ccy}${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 
-export const fmtPct = (n) => `${n.toFixed(2)}%`;
+export const fmtPct = (n) => {
+    // Convert n to a number and default to 0 if it's invalid (NaN, null, undefined)
+    const num = parseFloat(n) || 0;
+    return `${num.toFixed(2)}%`;
+};
 
 export const daysBetween = (d1, d2) =>
   Math.ceil((new Date(d2) - new Date(d1)) / (1000 * 60 * 60 * 24));

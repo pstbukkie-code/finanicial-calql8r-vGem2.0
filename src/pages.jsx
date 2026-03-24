@@ -568,7 +568,9 @@ export function FacilityCard({
 }) {
   const stats = calcStats(f, currencies);
   const sym = f.ccy === 'NGN' ? '₦' : '$'; // use facility's own currency
-  const allIn = f.boardRate + f.mgmtFee + f.commitFee;
+  const allIn = (parseFloat(f.boardRate) || 0) +
+        (parseFloat(f.mgmtFee) || 0) +
+        (parseFloat(f.commitFee) || 0);
 
   return (
     <div style={{ ...S.card, padding: '24px' }}>
