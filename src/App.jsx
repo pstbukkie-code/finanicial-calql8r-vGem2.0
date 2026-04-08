@@ -253,12 +253,19 @@ export default function App() {
     { name: 'Headroom', value: totalAvailable },
   ]; // --- Handlers ---
 
-  const addFac = (f) => {
-    setFacilities([
-      ...facilities,
-      { ...f, id: 'F' + Date.now(), drawdowns: [], repayments: [] },
-    ]);
-  };
+    const addFac = (f) => {
+        const nextNumber = facilities.length + 1;
+        setFacilities([
+            ...facilities,
+            {
+                ...f,
+                id: 'F' + Date.now(),
+                loanNumber: `LN-${String(nextNumber).padStart(3, '0')}`, // Automatically creates LN-001, LN-002, etc.
+                drawdowns: [],
+                repayments: []
+            },
+        ]);
+    };
   const editFac = (u) =>
     setFacilities(facilities.map((f) => (f.id === u.id ? { ...f, ...u } : f)));
   const delFac = (id) => setFacilities(facilities.filter((f) => f.id !== id));
@@ -894,7 +901,7 @@ export default function App() {
                       {active
                         .filter((f) => f.maturity)
                         .map((f) => {
-                          const days = f.daysToMat;
+                          const days = daysBetween(now.toISOString().split('T')[0], f.maturity);
                           const status =
                             days < 0
                               ? 'danger'
@@ -1180,53 +1187,51 @@ export default function App() {
                   </tr>{' '}
                 </thead>{' '}
                 <tbody>
-                  {' '}
                   {active
-                    .filter((f) => f.maturity)
+                   .filter((f) => f.maturity)
                     .map((f) => {
-                      const days = f.daysToMat;
-                      const status =
-                        days < 0
-                          ? 'danger'
-                          : days <= 30
-                          ? 'warning'
-                          : 'ontrack';
-                      return (
-                        <tr key={f.id}>
-                          <td style={S.td}>{f.facilityName}</td>{' '}
-                          <td style={S.td}>{f.bank}</td>{' '}
-                          <td style={S.td}>{f.maturity}</td>{' '}
-                          <td style={S.td}>{days < 0 ? 'Expired' : days}</td>{' '}
-                          <td style={S.td}>
-                            {' '}
-                            {fmtN(
-                              toDisplay(f.outstanding, f.ccy),
-                              displayCcy === 'NGN' ? '₦' : '$'
-                            )}{' '}
-                          </td>{' '}
-                          <td
-                            style={{
-                              ...S.td,
-                              color:
-                                status === 'danger'
-                                  ? '#ef4444'
-                                  : status === 'warning'
-                                  ? '#f59e0b'
-                                  : '#22c55e',
-                            }}
-                          >
-                            {' '}
-                            {status === 'danger'
-                              ? '⚠️ Expired'
-                              : status === 'warning'
-                              ? '⚠ Near'
-                              : '✓ On track'}{' '}
-                          </td>{' '}
-                        </tr>
-                      );
-                    })}{' '}
-                </tbody>{' '}
-              </table>{' '}
+    // This calculates the real-time difference between today and the maturity date
+                 const days = daysBetween(now.toISOString().split('T')[0], f.maturity);
+                 const status =
+                  days < 0
+                  ? 'danger'
+                     : days <= 30
+                  ? 'warning'
+        :           'ontrack';
+                return (
+                    <tr key={f.id}>
+        <td style={S.td}>{f.facilityName}</td>
+        <td style={S.td}>{f.bank}</td>
+        <td style={S.td}>{f.maturity}</td>
+        <td style={S.td}>{days < 0 ? 'Expired' : `${days} days`}</td>
+        <td style={S.td}>
+          {fmtN(
+            toDisplay(f.outstanding || 0, f.ccy),
+            displayCcy === 'NGN' ? '₦' : '$'
+          )}
+        </td>
+        <td
+          style={{
+            ...S.td,
+            color:
+              status === 'danger'
+                ? '#ef4444'
+                : status === 'warning'
+                ? '#f59e0b'
+                : '#22c55e',
+          }}
+        >
+          {status === 'danger'
+            ? '⚠️ Expired'
+            : status === 'warning'
+            ? '⚠ Near'
+            : '✓ On track'}
+        </td>
+      </tr>
+    );
+  })}
+                </tbody>
+              </table>
             </div>
           )}{' '}
           {activeTab === 'interestfees' && (
