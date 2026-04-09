@@ -1,4 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useAuth, usePermissions } from './features/auth/useAuth';
+import { usePortfolio } from './features/portfolio/usePortfolio';
+import { UserManagement } from './features/admin/UserManagement';
+import { AuditLogViewer } from './features/admin/AuditLogViewer';
 import {
   BarChart,
   Bar,
@@ -25,12 +29,8 @@ import {
   exportToCSV,
   parseCSV,
 } from './utils';
-import {
-  defaultBanks,
-  defaultSubsidiaries,
-  initialCurrencies,
-  initialFacilities,
-} from './data';
+// defaultBanks, defaultSubsidiaries, initialCurrencies, initialFacilities
+// are no longer needed here — usePortfolio loads from SQLite on mount
 import { S, mkbtn, KPI, Badge, UtilBar, Modal, ConfirmModal } from './ui.jsx';
 import {
   InterestFeesPage,
@@ -64,50 +64,31 @@ function useDateTime() {
 
 /// --- Main App Component ---
 export default function App() {
-  // 1. DEFINE ALL STATE FIRST
-  const [facilities, setFacilities] = useState(() => {
-    const saved = localStorage.getItem('my_facilities');
-    return saved ? JSON.parse(saved) : initialFacilities;
-  });
+  // Auth context — currentUser is always set here (LoginPage gates before App renders)
+  const { currentUser, logout } = useAuth();
+  const permissions = usePermissions();
 
-  const [savedBanks, setSavedBanks] = useState(() => {
-    const saved = localStorage.getItem("my_banks");
-    return saved ? JSON.parse(saved) : defaultBanks;
-  });
-
-  // FIXED: Changed defaultBUs to defaultSubsidiaries
-  const [savedSubsidiaries, setSavedSubsidiaries] = useState(() => {
-    const saved = localStorage.getItem("my_bus");
-    // Added safety check and changed defaultBUs to defaultSubsidiaries
-    try {
-      const parsed = saved ? JSON.parse(saved) : null;
-      return Array.isArray(parsed) ? parsed : defaultSubsidiaries;
-    } catch (e) {
-      return defaultSubsidiaries;
-    }
-  });
-
-  const [currencies, setCurrencies] = useState(() => {
-    const saved = localStorage.getItem("my_currencies");
-    return saved ? JSON.parse(saved) : initialCurrencies;
-  });
-
-  // 2. NOW DEFINE THE SAVE TRIGGERS (Effects)
-  useEffect(() => {
-    localStorage.setItem('my_facilities', JSON.stringify(facilities));
-  }, [facilities]);
-
-  useEffect(() => {
-    localStorage.setItem("my_banks", JSON.stringify(savedBanks));
-  }, [savedBanks]);
-
-  useEffect(() => {
-    localStorage.setItem("my_bus", JSON.stringify(savedSubsidiaries));
-  }, [savedSubsidiaries]);
-
-  useEffect(() => {
-    localStorage.setItem("my_currencies", JSON.stringify(currencies));
-  }, [currencies]);
+  // Portfolio state — replaces all localStorage useState/useEffect pairs
+  const {
+    facilities,
+    savedBanks,
+    setSavedBanks,
+    savedSubsidiaries,
+    setSavedSubsidiaries,
+    currencies,
+    setCurrencies,
+    addFac,
+    editFac,
+    delFac,
+    addDD,
+    addRepay,
+    renewFac,
+    handleSubsidiaryRepay: handleSubsidiaryRepayFn,
+    handleImport,
+    addBank,
+    addSubsidiary,
+    isReady,
+  } = usePortfolio();
 
   // 3. THE REST OF YOUR APP STATE
   const [displayCcy, setDisplayCcy] = useState('NGN');
@@ -253,163 +234,49 @@ export default function App() {
     { name: 'Headroom', value: totalAvailable },
   ]; // --- Handlers ---
 
-    const addFac = (f) => {
-        const nextNumber = facilities.length + 1;
-        setFacilities([
-            ...facilities,
-            {
-                ...f,
-                id: 'F' + Date.now(),
-                loanNumber: `LN-${String(nextNumber).padStart(3, '0')}`, // Automatically creates LN-001, LN-002, etc.
-                drawdowns: [],
-                repayments: []
-            },
-        ]);
+  // Handlers are provided by usePortfolio — file upload still handled locally
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const imported = parseCSV(evt.target.result);
+      imported.forEach(f => addFac(f));
     };
-  const editFac = (u) =>
-    setFacilities(facilities.map((f) => (f.id === u.id ? { ...f, ...u } : f)));
-  const delFac = (id) => setFacilities(facilities.filter((f) => f.id !== id));
-  const addDD = (fid, d) =>
-    setFacilities(
-      facilities.map((f) =>
-        f.id === fid ? { ...f, drawdowns: [...f.drawdowns, d] } : f
-      )
-        );
-    const renewFac = (oldId, renewalData) => {
-        setFacilities(prev => {
-            const oldFac = prev.find(f => f.id === oldId);
-            // 1. Mark the old facility as "Renewed"
-            const updatedPrev = prev.map(f =>
-                f.id === oldId ? { ...f, status: 'Renewed', remarks: (f.remarks || "") + `\nRenewed on ${renewalData.startDate}` } : f
-            );
+    reader.readAsText(file);
+  };
 
-            // 2. Create the new facility entry carrying over history
-            const newFac = {
-                ...oldFac,
-                ...renewalData,
-                id: 'F' + Date.now(),
-                status: 'Active',
-                drawdowns: oldFac.drawdowns,
-                repayments: oldFac.repayments,
-                remarks: `Renewal of facility ${oldFac.facilityName}`
-            };
+  // addRepay wrapper — computes FIFO drawdown updates before calling IPC
+  const handleAddRepay = (fid, amt, date, type) => {
+    const fac = facilities.find(f => f.id === fid);
+    if (!fac) return;
+    const drawdownUpdates = [];
+    if (type === 'principal') {
+      let remaining = amt;
+      const sorted = [...fac.drawdowns].sort((a, b) => new Date(a.date) - new Date(b.date));
+      for (const d of sorted) {
+        const owed = d.amount - d.repaid;
+        if (owed > 0) {
+          const pay = Math.min(owed, remaining);
+          drawdownUpdates.push({ id: d.id, repaid: d.repaid + pay });
+          remaining -= pay;
+          if (remaining <= 0) break;
+        }
+      }
+    }
+    addRepay(fid, amt, date, type, drawdownUpdates);
+  };
 
-            return [...updatedPrev, newFac];
-        });
-    };
-    const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            const imported = parseCSV(evt.target.result);
-            setFacilities(prev => [...prev, ...imported]);
-        };
-        reader.readAsText(file);
-    };
-    const addRepay = (fid, amt, date, type) => {
-      setFacilities(
-        facilities.map((f) => {
-          if (f.id !== fid) return f;
-          
-          // 1. Create the official ledger receipt
-          const newRepayment = {
-            id: 'R' + Date.now(),
-            date,
-            amount: amt,
-            type,
-          };
-  
-          const newDrawdowns = [...f.drawdowns].sort(
-            (a, b) => new Date(a.date) - new Date(b.date)
-          );
-          
-          // 2. If it's principal, apply FIFO logic to reduce the balances
-          if (type === 'principal') {
-            let remaining = amt;
-            for (let d of newDrawdowns) {
-              const owed = d.amount - d.repaid;
-              if (owed > 0) {
-                const pay = Math.min(owed, remaining);
-                d.repaid += pay;
-                remaining -= pay;
-                if (remaining <= 0) break;
-              }
-            }
-          } 
-          // 3. Save the receipt to the facility's ledger
-          return { 
-            ...f, 
-            drawdowns: newDrawdowns,
-            repayments: [...(f.repayments || []), newRepayment] 
-          };
-        })
-      );
-    };
-
+  // handleSubsidiaryRepay — finds facilityId from drawdownId then calls IPC
   const handleSubsidiaryRepay = (drawdownId, amount) => {
-    setFacilities(
-      facilities.map((f) => ({
-        ...f,
-        drawdowns: f.drawdowns.map((d) =>
-          d.id === drawdownId
-            ? { ...d, subsidiaryRepaid: (d.subsidiaryRepaid || 0) + amount }
-            : d
-        ),
-      }))
-    );
-  };
-
-  const addBank = (name) => {
-    if (!savedBanks.includes(name)) setSavedBanks([...savedBanks, name].sort());
-  };
-  const addSubsidiary = (name) => {
-    if (!savedSubsidiaries.includes(name)) setSavedSubsidiaries([...savedSubsidiaries, name].sort());
+    const fac = facilities.find(f => f.drawdowns?.some(d => d.id === drawdownId));
+    if (!fac) return;
+    handleSubsidiaryRepayFn(fac.id, drawdownId, amount);
   };
 
   const selFac = modal?.facilityId
     ? allStats.find((f) => f.id === modal.facilityId)
     : null;
-
-  const handleImport = (data) => {
-    const newFacs = data.map((row) => ({
-      id: 'F' + Date.now() + Math.random(),
-      bank: row.Bank,
-      facilityName: row.FacilityName,
-      ccy: row.Currency || 'NGN',
-      limitF: parseFloat(row.Limit) || 0,
-      facilityAmount: parseFloat(row.Amount) || 0,
-      startDate: row.StartDate || new Date().toISOString().split('T')[0],
-      maturity: row.Maturity || '',
-      tenureValue: 12,
-      tenureUnit: 'Months',
-      tenure2Value: 0,
-      tenure2Unit: 'Months',
-      intPayCycle: 'Monthly',
-      repCycle: 'Bullet',
-      maxCycleValue: 24,
-      maxCycleUnit: 'Months',
-      boardRate: parseFloat(row.Rate) || 0,
-      mgmtFee: 0,
-      commitFee: 0,
-      defaultInt: 0,
-      moratoriumValue: 0,
-      moratoriumUnit: 'None',
-      collateral: '',
-      remarks: '',
-      facilityClass: 'Term Loan',
-      offeredRate: 0,
-      negFixedRate: 0,
-      confirmed: 'Pending',
-      confirmDate: '',
-      status: 'Active',
-      interestRateType: 'Fixed',
-      pricingFormula: '',
-      interestBasis: 'Daily/Simple',
-      drawdowns: [],
-    }));
-    setFacilities([...facilities, ...newFacs]);
-  };
 
   const navGroups = [
     { title: 'Dashboard', items: [{ id: 'dashboard', label: '📊 Overview' }] },
@@ -565,14 +432,41 @@ export default function App() {
             color: '#5d7a96',
           }}
         >
-          {' '}
           {!sidebarCollapsed && (
             <>
-              <div>{now.toLocaleDateString()}</div>{' '}
-              <div>{now.toLocaleTimeString()}</div>{' '}
+              <div>{now.toLocaleDateString()}</div>
+              <div>{now.toLocaleTimeString()}</div>
+              {currentUser && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #1e3a5f' }}>
+                  <div style={{ color: '#8aa8c8', fontWeight: 600, marginBottom: 2 }}>
+                    {currentUser.displayName}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{
+                      display: 'inline-block', padding: '1px 7px', borderRadius: 4,
+                      fontSize: 10, fontWeight: 600,
+                      background: currentUser.role === 'Admin' ? 'rgba(201,168,76,0.15)' : 'rgba(30,58,95,0.6)',
+                      color: currentUser.role === 'Admin' ? '#c9a84c' : '#8aa8c8',
+                    }}>
+                      {currentUser.role}
+                    </span>
+                    <button
+                      onClick={logout}
+                      style={{ background: 'none', border: 'none', color: '#3d5a78', cursor: 'pointer', fontSize: 11, padding: '2px 4px' }}
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
-          )}{' '}
-        </div>{' '}
+          )}
+          {sidebarCollapsed && currentUser && (
+            <div title={`${currentUser.displayName} (${currentUser.role})`} style={{ textAlign: 'center', cursor: 'default' }}>
+              {currentUser.displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
       </div>
       {/* Main Content */}{' '}
       <div style={mainStyle}>
@@ -1372,23 +1266,37 @@ export default function App() {
             </div>
           )}{' '}
           {activeTab === 'admin' && (
-            <div style={S.card}>
-              <h3 style={{ color: '#c9a84c', marginBottom: 16 }}>Admin</h3>{' '}
-              <div style={{ display: 'flex', gap: 12 }}>
-                {' '}
-                <button
-                  onClick={() => setModal({ type: 'currency' })}
-                  style={mkbtn('#1e3a5f', '#c9a84c')}
-                >
-                  💱 Manage Currencies{' '}
-                </button>{' '}
-                <button
-                  onClick={() => setModal({ type: 'banksSubsidiaries' })}
-                  style={mkbtn('#1e3a5f', '#c9a84c')}
-                >
-                  🏦 Manage Banks/Subsidiaries{' '}
-                </button>{' '}
-              </div>{' '}
+            <div>
+              {/* System Settings — all roles */}
+              <div style={S.card}>
+                <h3 style={{ color: '#c9a84c', marginBottom: 16 }}>System Settings</h3>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button onClick={() => setModal({ type: 'currency' })} style={mkbtn('#1e3a5f', '#c9a84c')}>
+                    💱 Manage Currencies
+                  </button>
+                  {permissions.canWrite && (
+                    <button onClick={() => setModal({ type: 'banksSubsidiaries' })} style={mkbtn('#1e3a5f', '#c9a84c')}>
+                      🏦 Manage Banks/Subsidiaries
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* User Management — Admin only */}
+              {permissions.canManageUsers && (
+                <div style={{ ...S.card, marginTop: 16 }}>
+                  <h3 style={{ color: '#c9a84c', marginBottom: 16 }}>User Management</h3>
+                  <UserManagement />
+                </div>
+              )}
+
+              {/* Audit Log — Admin and Auditor */}
+              {permissions.canViewAuditLog && (
+                <div style={{ ...S.card, marginTop: 16 }}>
+                  <h3 style={{ color: '#c9a84c', marginBottom: 16 }}>Audit Log</h3>
+                  <AuditLogViewer />
+                </div>
+              )}
             </div>
           )}{' '}
         </div>{' '}
@@ -1436,7 +1344,7 @@ export default function App() {
         <RepayModal
           facility={selFac}
           onClose={() => setModal(null)}
-          onRepay={addRepay}
+          onRepay={handleAddRepay}
         />
       )}{' '}
       {modal?.type === 'currency' && (
