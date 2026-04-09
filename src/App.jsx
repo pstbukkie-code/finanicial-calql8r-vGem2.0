@@ -104,11 +104,6 @@ export default function App() {
             setAuthError(result.error);
         }
     };
-  // 1. DEFINE ALL STATE FIRST
-  const [facilities, setFacilities] = useState(() => {
-    const saved = localStorage.getItem('my_facilities');
-    return saved ? JSON.parse(saved) : initialFacilities;
-  });
 
   // Portfolio state — replaces all localStorage useState/useEffect pairs
   const {
@@ -380,13 +375,12 @@ export default function App() {
     minHeight: '100vh',
     overflow: 'auto',
     };
+
+    // This "Gatekeeper" must stay above the final return to block the UI
     if (loginMode === 'loading') {
         return (
-            <div style={{
-                height: '100vh', background: '#070e16', display: 'flex',
-                alignItems: 'center', justifyContent: 'center', color: '#8aa3be'
-            }}>
-                Connecting to SharePoint...
+            <div style={{ height: '100vh', background: '#070e16', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c9a84c' }}>
+                Verifying Credentials...
             </div>
         );
     }
