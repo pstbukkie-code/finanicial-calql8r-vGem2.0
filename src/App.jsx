@@ -72,18 +72,23 @@ export default function App() {
     // Auto-Login: Check if the laptop user is authorized
     useEffect(() => {
         const autoLogin = async () => {
-            if (window.electronAPI) {
-                const result = await window.electronAPI.verifyUser({ isSystemLogin: true });
-                if (result.success) {
-                    setUser(result.user);
-                    setLoginMode('authenticated');
-                    await window.electronAPI.writeLog(`User ${result.user.email} logged in via System Auth`);
-                } else {
-                    setLoginMode('login'); // Fallback to manual login if system auth fails
+            // Check if we are actually in the Electron environment
+            if (window.electronAPI && window.electronAPI.verifyUser) {
+                try {
+                    const result = await window.electronAPI.verifyUser({ isSystemLogin: true });
+                    if (result.success) {
+                        setUser(result.user);
+                        setLoginMode('authenticated');
+                    } else {
+                        setLoginMode('login'); // Show login screen if system user isn't in users.json
+                    }
+                } catch (err) {
+                    console.error("Auth Bridge Error:", err);
+                    setLoginMode('login');
                 }
             } else {
-                // If not running in Electron (like in a browser), skip auth for now
-                setLoginMode('authenticated');
+                // If we are NOT in Electron, show the login screen anyway
+                setLoginMode('login');
             }
         };
         autoLogin();

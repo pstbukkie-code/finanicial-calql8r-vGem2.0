@@ -2,18 +2,14 @@
   "name": "creditdesk-pro",
   "private": true,
   "version": "1.0.0",
-  "main": "out/main/index.js",
+  "type": "module",
+  "main": "main.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
-    "preview": "electron-vite preview",
-    "make": "npm run build && electron-builder",
-    "postinstall": "electron-builder install-app-deps",
-    "lint": "eslint ."
+    "dev": "vite",
+    "electron": "electron ."
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^9.6.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "recharts": "^3.8.0"
@@ -23,12 +19,11 @@
     "@electron-toolkit/utils": "^3.0.0",
     "@eslint/js": "^9.39.4",
     "@types/bcryptjs": "^2.4.6",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
-    "electron": "^33.4.0",
+    "electron": "^33.4.11",
     "electron-builder": "^25.0.0",
     "electron-vite": "^2.3.0",
     "eslint": "^9.39.4",
