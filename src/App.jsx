@@ -505,7 +505,21 @@ export default function App() {
     background: '#070e16',
     minHeight: '100vh',
     overflow: 'auto',
-  };
+    };
+    if (loginMode === 'loading') {
+        return (
+            <div style={{
+                height: '100vh', background: '#070e16', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', color: '#8aa3be'
+            }}>
+                Connecting to SharePoint...
+            </div>
+        );
+    }
+
+    if (loginMode === 'login') {
+        return <LoginScreen onLogin={handleManualLogin} error={authError} />;
+    }
 
   return (
     <div
