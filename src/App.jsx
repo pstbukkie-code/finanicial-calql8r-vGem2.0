@@ -64,6 +64,41 @@ function useDateTime() {
 
 /// --- Main App Component ---
 export default function App() {
+    // --- AUTHENTICATION STATE ---
+    const [user, setUser] = useState(null);
+    const [authError, setAuthError] = useState('');
+    const [loginMode, setLoginMode] = useState('loading'); // loading, login, authenticated
+
+    // Auto-Login: Check if the laptop user is authorized
+    useEffect(() => {
+        const autoLogin = async () => {
+            if (window.electronAPI) {
+                const result = await window.electronAPI.verifyUser({ isSystemLogin: true });
+                if (result.success) {
+                    setUser(result.user);
+                    setLoginMode('authenticated');
+                    await window.electronAPI.writeLog(`User ${result.user.email} logged in via System Auth`);
+                } else {
+                    setLoginMode('login'); // Fallback to manual login if system auth fails
+                }
+            } else {
+                // If not running in Electron (like in a browser), skip auth for now
+                setLoginMode('authenticated');
+            }
+        };
+        autoLogin();
+    }, []);
+
+    const handleManualLogin = async (email, password) => {
+        const result = await window.electronAPI.verifyUser({ email, password, isSystemLogin: false });
+        if (result.success) {
+            setUser(result.user);
+            setLoginMode('authenticated');
+            await window.electronAPI.writeLog(`User ${result.user.email} logged in via Manual Auth`);
+        } else {
+            setAuthError(result.error);
+        }
+    };
   // 1. DEFINE ALL STATE FIRST
   const [facilities, setFacilities] = useState(() => {
     const saved = localStorage.getItem('my_facilities');
@@ -1370,7 +1405,7 @@ export default function App() {
                 🔮 Launch What-If Analysis{' '}
               </button>{' '}
             </div>
-          )}{' '}
+          )}
           {activeTab === 'admin' && (
             <div style={S.card}>
               <h3 style={{ color: '#c9a84c', marginBottom: 16 }}>Admin</h3>{' '}
@@ -1495,4 +1530,44 @@ export default function App() {
       )}{' '}
     </div>
   );
+}
+function LoginScreen({ onLogin, error }) {
+    const [email, setEmail] = useState('');
+    const [pass, setPass] = useState('');
+
+    return (
+        <div style={{
+            height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#070e16', color: '#e8f0fe', fontFamily: 'sans-serif'
+        }}>
+            <div style={{ ...S.card, width: 400, padding: 40, textAlign: 'center' }}>
+                <h2 style={{ color: '#c9a84c', marginBottom: 20 }}>CreditDesk Pro</h2>
+                <p style={{ fontSize: 13, color: '#8aa3be', marginBottom: 24 }}>Secure Portfolio Access</p>
+
+                {error && <div style={{ color: '#ef4444', marginBottom: 16, fontSize: 12 }}>{error}</div>}
+
+                <input
+                    placeholder="Email Address"
+                    value={email} onChange={e => setEmail(e.target.value)}
+                    style={{ ...S.inp, marginBottom: 12, width: '100%' }}
+                />
+                <input
+                    type="password" placeholder="Password"
+                    value={pass} onChange={e => setPass(e.target.value)}
+                    style={{ ...S.inp, marginBottom: 24, width: '100%' }}
+                />
+
+                <button
+                    onClick={() => onLogin(email, pass)}
+                    style={{ ...mkbtn('#c9a84c', '#0a1520'), width: '100%', padding: 12 }}
+                >
+                    SIGN IN
+                </button>
+
+                <div style={{ marginTop: 20, fontSize: 11, color: '#5d7a96' }}>
+                    Attempting System Authentication...
+                </div>
+            </div>
+        </div>
+    );
 }

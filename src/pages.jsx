@@ -375,89 +375,129 @@ export function RepaymentSchedulePage({ facilities, currencies, displayCcy }) {
 }
 
 // --- Facility Card Component ---
-export function FacilityCard({ f, setModal, setConfirm, delFac, setSelectedFacility, currencies }) {
+export function FacilityCard({
+    f,
+    setModal,
+    setConfirm,
+    delFac,
+    setSelectedFacility,
+    currencies,
+}) {
     const stats = calcStats(f, currencies);
     const sym = f.ccy === 'NGN' ? '₦' : '$';
-    const allIn = (parseFloat(f.boardRate) || 0) + (parseFloat(f.mgmtFee) || 0) + (parseFloat(f.commitFee) || 0);
+
+    // 1. Calculate the "All-in cost" including management and commitment fees
+    const allIn = (parseFloat(f.boardRate) || 0) +
+        (parseFloat(f.mgmtFee) || 0) +
+        (parseFloat(f.commitFee) || 0);
+
+    // 2. Calculate real-time "Days Left" for the badge
+    const daysLeft = daysBetween(new Date().toISOString().split('T')[0], f.maturity);
 
     return (
         <div style={{ ...S.card, padding: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20 }}>
                 <div style={{ flex: '0 0 300px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-                        <strong style={{ fontSize: 18, cursor: 'pointer', color: '#c9a84c' }} onClick={() => setSelectedFacility(f)}>
+                        {/* Show the new Loan Number and Facility Name */}
+                        <span style={{ color: '#5d7a96', fontSize: 12, fontWeight: 'bold' }}>{f.loanNumber || 'NEW'}</span>
+                        <strong
+                            style={{ fontSize: 18, cursor: 'pointer', color: '#c9a84c' }}
+                            onClick={() => setSelectedFacility(f)}
+                        >
                             {f.facilityName}
                         </strong>
                         <Badge status={f.status} />
-                        <span style={{ background: f.ccy === 'NGN' ? '#1a2d45' : '#2d1b00', color: f.ccy === 'NGN' ? '#60a5fa' : '#f59e0b', borderRadius: 4, padding: '2px 7px', fontSize: 12, fontWeight: 700 }}>
+                        <span
+                            style={{
+                                background: f.ccy === 'NGN' ? '#1a2d45' : '#2d1b00',
+                                color: f.ccy === 'NGN' ? '#60a5fa' : '#f59e0b',
+                                borderRadius: 4,
+                                padding: '2px 7px',
+                                fontSize: 12,
+                                fontWeight: 700,
+                            }}
+                        >
                             {f.ccy}
                         </span>
-                        {f.facilityClass === 'Overdraft/Short Term' && (
-                            <span style={{ background: '#1e3a5f', color: '#c9a84c', borderRadius: 4, padding: '2px 7px', fontSize: 10, fontWeight: 700, marginLeft: 4 }}>
-                                2‑in‑1
-                            </span>
-                        )}
                     </div>
+
                     <div style={{ fontSize: 14, color: '#8aa3be', marginBottom: 10 }}>
-                        {f.bank} · {f.facilityClass} · {(() => {
-                            if (f.startDate && f.maturity) {
-                                const days = daysBetween(f.startDate, f.maturity);
-                                return formatTenure(days);
-                            }
-                            return `${f.tenureValue} ${f.tenureUnit}`;
-                        })()} · {f.boardRate}%
+                        {f.bank} · {f.facilityClass} · {f.boardRate}% Rate
                     </div>
+
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
                         <div>
-                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Loan Amt</span>
+                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Limit</span>
                             <div style={{ fontSize: 16, fontFamily: 'monospace' }}>
-                                {fmtN((() => {
-                                    const amount1 = parseFloat(f.facilityAmount) || 0;
-                                    const amount2 = parseFloat(f.facilityAmount2) || 0;
-                                    return f.facilityClass === 'Overdraft/Short Term' ? amount1 + amount2 : amount1;
-                                })(), sym)}
+                                {fmtN(parseFloat(f.facilityAmount) || 0, sym)}
                             </div>
                         </div>
                         <div>
-                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Utilized</span>
-                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#f59e0b' }}>{fmtN(stats.drawn, sym)}</div>
+                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Current Owed (Principal)</span>
+                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#f59e0b' }}>
+                                {fmtN(stats.outstanding, sym)}
+                            </div>
                         </div>
                         <div>
-                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Available</span>
-                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#22c55e' }}>{fmtN(stats.available, sym)}</div>
+                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Available Headroom</span>
+                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#22c55e' }}>
+                                {fmtN(stats.available, sym)}
+                            </div>
                         </div>
                         <div>
-                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Accrued Int</span>
-                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#a78bfa' }}>{fmtN(stats.interest, sym)}</div>
-                        </div>
-                        <div>
-                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Unpaid Balance</span>
-                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#f59e0b' }}>{fmtN(stats.outstanding - stats.interest, sym)}</div>
+                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Accrued Interest</span>
+                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#a78bfa' }}>
+                                {fmtN(stats.interest, sym)}
+                            </div>
                         </div>
                     </div>
+
                     <div style={{ marginTop: 12 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                             <span style={{ fontSize: 12, color: '#8aa3be' }}>Utilization</span>
-                            <span style={{ fontSize: 14, fontWeight: 600, color: stats.utilPct > 90 ? '#ef4444' : stats.utilPct > 70 ? '#f59e0b' : '#22c55e' }}>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: stats.utilPct > 90 ? '#ef4444' : '#22c55e' }}>
                                 {fmtPct(stats.utilPct)}
                             </span>
                         </div>
                         <UtilBar pct={stats.utilPct} />
                     </div>
-                    <div style={{ marginTop: 8, fontSize: 13, color: '#a78bfa' }}>All-in cost: {fmtPct(allIn)}</div>
+
+                    <div style={{ marginTop: 12, display: 'flex', gap: 15 }}>
+                        <div style={{ fontSize: 11, color: '#8aa3be' }}>
+                            Mgt Fee: <span style={{ color: '#e8f0fe' }}>{fmtN(stats.mgtFeeAmount, sym)}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#8aa3be' }}>
+                            Days to Maturity: <span style={{ color: daysLeft < 30 ? '#ef4444' : '#22c55e' }}>{daysLeft < 0 ? 'Expired' : daysLeft}</span>
+                        </div>
+                    </div>
                 </div>
+
                 <div style={{ flex: '0 0 120px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {f.status === 'Active' && (
                         <>
-                            <button onClick={() => setModal({ type: 'drawdown', facilityId: f.id })} style={mkbtn('#1d4ed8')}>↓ Drawdown</button>
-                            <button onClick={() => setModal({ type: 'repay', facilityId: f.id })} style={mkbtn('#059669')}>↩ Repay</button>
+                            <button onClick={() => setModal({ type: 'drawdown', facilityId: f.id })} style={mkbtn('#1d4ed8')}>
+                                ↓ Drawdown
+                            </button>
+                            <button onClick={() => setModal({ type: 'repay', facilityId: f.id })} style={mkbtn('#059669')}>
+                                ↩ Repay
+                            </button>
                         </>
                     )}
-                    <button onClick={() => setModal({ type: 'editFac', facilityId: f.id })} style={mkbtn('#374151', '#fbbf24')}>✏️ Edit</button>
-                    {f.status === 'Active' && (
-                        <button onClick={() => setModal({ type: 'renew', facilityId: f.id })} style={mkbtn('#c9a84c', '#0a1520')}>♻️ Renew</button>
-                    )}
-                    <button onClick={() => setConfirm({ message: `Delete "${f.facilityName}"?`, onConfirm: () => delFac(f.id) })} style={mkbtn('#7f1d1d', '#fca5a5')}>🗑 Delete</button>
+                    <button onClick={() => setModal({ type: 'editFac', facilityId: f.id })} style={mkbtn('#374151', '#fbbf24')}>
+                        ✏️ Edit
+                    </button>
+                    <button
+                        onClick={() =>
+                            setConfirm({
+                                message: `Delete "${f.facilityName}"?`,
+                                onConfirm: () => delFac(f.id),
+                            })
+                        }
+                        style={mkbtn('#7f1d1d', '#fca5a5')}
+                    >
+                        🗑 Delete
+                    </button>
                 </div>
             </div>
         </div>
