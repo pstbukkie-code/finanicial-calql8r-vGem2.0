@@ -42,77 +42,38 @@ export const formatTenure = (days) => {
 
 export function calcStats(f, currencies, today = new Date()) {
     const todayStr = today.toISOString().split("T")[0];
+    const isChild = !!f.parentId; // Identify if this is a drawn utilization
 
-    const computeStats = (drawdowns, repayments, baseRate, facilityClass) => {
-        const events = [];
-
-        // 1. Management Fee (Calculated as a one-off cost based on total limit)
-        const mgtFeeAmount = (parseFloat(f.facilityAmount) * (parseFloat(f.mgmtFee) || 0)) / 100;
-
-        // Collect all money-moving events
-        drawdowns.forEach(d => events.push({ date: d.date, amount: d.amount, type: 'drawdown' }));
-        repayments.filter(r => r.type === 'principal').forEach(r => events.push({ date: r.date, amount: r.amount, type: 'repay' }));
-
-        // Sort them by date so we calculate interest chronologically
-        events.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        let balance = 0;
-        let interestAccrued = 0;
-        let totalDrawnSoFar = 0;
-        let lastDate = f.startDate || todayStr;
-
-        events.forEach(ev => {
-            if (new Date(ev.date) > new Date(todayStr)) return;
-
-            let days = Math.max(0, daysBetween(lastDate, ev.date));
-            if (days > 0 && balance > 0) {
-                // Reducing Balance Interest: Interest is only on what is currently owed
-                interestAccrued += balance * (baseRate / 100) * (days / 365);
-            }
-
-            if (ev.type === 'drawdown') {
-                balance += ev.amount;
-                totalDrawnSoFar += ev.amount;
-            }
-            if (ev.type === 'repay') {
-                balance -= ev.amount;
-            }
-            lastDate = ev.date;
-        });
-
-        // Accrue interest from the last event up until today
-        let daysToToday = Math.max(0, daysBetween(lastDate, todayStr));
-        if (daysToToday > 0 && balance > 0) {
-            interestAccrued += balance * (baseRate / 100) * (daysToToday / 365);
-        }
-
-        const repaid = repayments.filter(r => r.type === 'principal').reduce((s, r) => s + r.amount, 0);
-
-        // --- Availability Logic ---
+    const computeStats = () => {
         const limit = parseFloat(f.facilityAmount) || 0;
-        let available = 0;
+        let interestAccrued = 0;
+        let drawn = f.drawdowns?.reduce((s, d) => s + d.amount, 0) || 0;
+        const principalRepaid = f.repayments?.filter(r => r.type === 'principal').reduce((s, r) => s + r.amount, 0) || 0;
+        const currentBalance = (isChild ? limit : drawn) - principalRepaid;
 
-        if (facilityClass === 'Revolving' || facilityClass === 'Overdraft/Short Term') {
-            // Revolving: Repaying money makes it available to borrow again
-            available = Math.max(0, limit - balance);
-        } else {
-            // Term Loan: Once you draw it, that portion of the limit is "gone"
-            available = Math.max(0, limit - totalDrawnSoFar);
+        // --- PERSPECTIVE 1: BANK FACILITY (Parent Relationship) ---
+        if (!isChild) {
+            // Immediate accrual on total exposure/limit
+            const daysSinceStart = Math.max(0, daysBetween(f.startDate, todayStr));
+            interestAccrued = (limit * (f.boardRate / 100) * (daysSinceStart / 365));
+
+            const available = f.facilityClass === 'Revolving' || f.facilityClass === 'Overdraft/Short Term'
+                ? Math.max(0, limit - (drawn - principalRepaid)) // Repayment adds back to headroom
+                : Math.max(0, limit - drawn); // Term loan: limit is consumed forever
+
+            return { drawn, repaid: principalRepaid, outstanding: (drawn - principalRepaid), interest: interestAccrued, available };
         }
 
-        return {
-            drawn: totalDrawnSoFar,
-            repaid,
-            outstanding: balance,
-            interest: Math.max(0, interestAccrued),
-            available,
-            mgtFeeAmount
-        };
+        // --- PERSPECTIVE 2: UTILIZED LOAN (Child Operational) ---
+        else {
+            // Reducing Balance: Interest only on the actual unpaid principal balance
+            const daysSinceStart = Math.max(0, daysBetween(f.startDate, todayStr));
+            interestAccrued = (currentBalance * (f.boardRate / 100) * (daysSinceStart / 365));
+            return { drawn: limit, repaid: principalRepaid, outstanding: currentBalance, interest: interestAccrued, available: 0 };
+        }
     };
 
-    const reps = f.repayments || [];
-    const stats = computeStats(f.drawdowns || [], reps, f.boardRate, f.facilityClass);
-
+    const stats = computeStats();
     return {
         ...stats,
         utilPct: (parseFloat(f.facilityAmount) > 0) ? (stats.outstanding / parseFloat(f.facilityAmount)) * 100 : 0

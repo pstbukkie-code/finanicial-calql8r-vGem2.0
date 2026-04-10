@@ -232,7 +232,7 @@ export function DrawdownDetailModal({ drawdown, facility, currencies, onClose, o
         if (!amt || amt <= 0) return alert('Enter a valid amount.');
         if (repayType === 'principal' && amt > stats.outstanding) return alert('Exceeds outstanding principal.');
         if (repayType === 'interest' && amt > stats.interest) return alert('Exceeds accrued interest.');
-        onRepay(drawdown.id, amt, repayType);
+        onRepay(drawdown.id, amt);
         onClose();
     };
 

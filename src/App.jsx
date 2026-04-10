@@ -897,22 +897,39 @@ export default function App() {
     };
 
     // 4. ADD DRAWDOWN
-    const addDD = async (fid, d) => {
-        const fac = facilities.find(f => f.id === fid);
-        const updatedFac = { ...fac, drawdowns: [...fac.drawdowns, d] };
+    const addDD = async (parentId, drawdownData) => {
+        const parent = facilities.find(f => f.id === parentId);
+
+        // Create the "Child" Facility record
+        const childFacility = {
+            ...parent,
+            id: 'UTIL-' + Date.now(),
+            parentId: parent.id, // Links back to bank facility
+            facilityAmount: drawdownData.amount, // Capped at drawn amount
+            startDate: drawdownData.date,
+            facilityName: `${parent.facilityName} (${drawdownData.subsidiary} - Drawn ${drawdownData.date})`,
+            drawdowns: [], // Children don't have their own drawdowns
+            repayments: [],
+            status: 'Active',
+        };
+
+        const updatedParent = {
+            ...parent,
+            drawdowns: [...(parent.drawdowns || []), { ...drawdownData, childId: childFacility.id }]
+        };
 
         try {
             if (window.electronAPI?.saveLoan) {
-                await window.electronAPI.saveLoan(updatedFac, user?.displayName || 'system');
+                await window.electronAPI.saveLoan(updatedParent, user?.displayName || 'system');
+                await window.electronAPI.saveLoan(childFacility, user?.displayName || 'system');
                 const updated = await window.electronAPI.loadLoans();
                 setFacilities(updated);
-                alert("💵 Success: Drawdown recorded.");
+                alert("✅ Success: Utilization created in 'Active Utilizations' tab.");
             } else {
-                setFacilities(prev => prev.map(f => f.id === fid ? updatedFac : f));
+                setFacilities(prev => [...prev.filter(f => f.id !== parentId), updatedParent, childFacility]);
             }
         } catch (err) {
-            console.error('Drawdown save failed:', err);
-            setFacilities(prev => prev.map(f => f.id === fid ? updatedFac : f));
+            console.error('Overhaul: Drawdown failed:', err);
         }
     };
 
@@ -1088,28 +1105,29 @@ export default function App() {
     setFacilities([...facilities, ...newFacs]);
   };
 
-  const navGroups = [
-    { title: 'Dashboard', items: [{ id: 'dashboard', label: '📊 Overview' }] },
-    {
-      title: 'Facilities',
-      items: [
-        { id: 'facilities', label: '🏦 List' },
-        { id: 'performance', label: '📊 Performance' },
-        { id: 'maturity', label: '⏳ Maturity Ladder' },
-      ],
-    },
-    {
-      title: 'Costs',
-      items: [
-        { id: 'interestfees', label: '📈 Interest & Fees' },
-        { id: 'repayment', label: '📅 Repayment Schedule' },
-        { id: 'drawdowns', label: '📋 Subsidiary Drawdowns' }, // new
-      ],
-    },
+    const navGroups = [
+        { title: 'Dashboard', items: [{ id: 'dashboard', label: '📊 Overview' }] },
+        {
+            title: 'Management',
+            items: [
+                { id: 'facilities', label: ' 🏦  Bank Relationships' },
+                { id: 'utilizations', label: ' 📋  Active Utilizations' },
+                { id: 'performance', label: ' 📊  Performance' },
+                { id: 'maturity', label: ' ⏳  Maturity Ladder' },
+            ],
+        },
+        {
+            title: 'Costs',
+            items: [
+                { id: 'interestfees', label: '📈 Interest & Fees' },
+                { id: 'repayment', label: '📅 Repayment Schedule' },
+                { id: 'drawdowns', label: '📋 Subsidiary Drawdowns' },
+            ],
+        },
     {
       title: 'Analysis',
       items: [
-        { id: 'budashboard', label: '🏢 Subsidiary Summary' }, // renamed
+        { id: 'budashboard', label: '🏢 Subsidiary Summary' },
         { id: 'scenario', label: '🔮 What-If' },
       ],
     },
@@ -1216,13 +1234,13 @@ export default function App() {
                         console.log('✅ SSO login successful for:', result.user.displayName);
 
                         try {
-                            const savedLoans = await window.electronAPI.loadLoans();
-                            console.log('📦 Loaded facilities from SharePoint:', savedLoans.length);
-                            if (savedLoans.length > 0) {
-                                setFacilities(savedLoans);
-                            }
+                          const savedLoans = await window.electronAPI.loadLoans();
+                          console.log('📦 Loaded facilities from SharePoint:', savedLoans.length);
+                          if (savedLoans.length > 0) {
+                            setFacilities(savedLoans);
+                          }
                         } catch (err) {
-                            console.warn('⚠️ Could not load facilities from SharePoint, using localStorage:', err);
+                          console.warn('⚠️ Could not load facilities from SharePoint, using localStorage:', err);
                         }
 
                         setLoginMode('authenticated');
@@ -1719,11 +1737,11 @@ export default function App() {
                     <thead>
                       {' '}
                       <tr>
-                        <th style={S.th}>Facility</th>{' '}
-                        <th style={S.th}>Days Left</th>{' '}
-                        <th style={S.th}>Status</th>{' '}
+                        <th style={S.th}>Facility</th>
+                        <th style={S.th}>Days Left</th>
+                        <th style={S.th}>Status</th>
                       </tr>{' '}
-                    </thead>{' '}
+                    </thead>
                     <tbody>
                       {' '}
                       {active
@@ -1738,10 +1756,10 @@ export default function App() {
                               : 'ontrack';
                           return (
                             <tr key={f.id}>
-                              <td style={S.td}>{f.facilityName}</td>{' '}
+                              <td style={S.td}>{f.facilityName}</td>
                               <td style={S.td}>
-                                {days < 0 ? 'Expired' : days}{' '}
-                              </td>{' '}
+                                {days < 0 ? 'Expired' : days}
+                              </td>
                               <td
                                 style={{
                                   ...S.td,
@@ -1759,13 +1777,13 @@ export default function App() {
                                   : status === 'warning'
                                   ? '⚠'
                                   : '✓'}{' '}
-                              </td>{' '}
+                              </td>
                             </tr>
                           );
-                        })}{' '}
-                    </tbody>{' '}
-                  </table>{' '}
-                </div>{' '}
+                        })}
+                    </tbody>
+                  </table>
+                </div>
               </div>{' '}
             </>
           )}{' '}
@@ -1957,8 +1975,8 @@ export default function App() {
                         gap: 14,
                       }}
                     >
-                      {' '}
-                      {facs.map((f) => (
+                      
+                     {facs.filter(f => !f.parentId).map((f) => (
                           <FacilityCard
                               key={f.id}
                               f={f}
@@ -1982,8 +2000,8 @@ export default function App() {
                 <div
                   style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
                 >
-                  {' '}
-                  {filtered.map((f) => (
+                  
+                  {filtered.filter(f => !f.parentId).map((f) => (
                       <FacilityCard
                           key={f.id}
                           f={f}
@@ -2003,8 +2021,35 @@ export default function App() {
                 </div>
               )}{' '}
             </>
-          )}{' '}
-          {activeTab === 'performance' && (
+          )}
+                  {activeTab === 'utilizations' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                          <div style={S.sec}>Child Loans (Utilized Principal)</div>
+                          {allStats.filter(f => f.parentId).map((f) => (
+                              <FacilityCard
+                                  key={f.id}
+                                  f={f}
+                                  onDetail={handleDetailClick}
+                                  onEdit={() => handleEditClick(f)}
+                                  setModal={setModal}
+                                  setConfirm={setConfirm}
+                                  delFac={delFac}
+                                  currencies={currencies}
+                                  canDrawdown={false} // Hidden: Children cannot draw down further
+                                  canRepay={canRepay()}
+                                  canRenew={false}
+                                  canEdit={canEditFacilities()}
+                                  canDelete={canDeleteFacilities()}
+                              />
+                          ))}
+                          {allStats.filter(f => f.parentId).length === 0 && (
+                              <div style={{ color: '#8aa3be', textAlign: 'center', padding: 40 }}>
+                                  No active utilizations found.
+                              </div>
+                          )}
+                      </div>
+                  )}
+              {activeTab === 'performance' && (
             <PerformancePage
               facilities={allStats}
               currencies={currencies}
@@ -2208,7 +2253,7 @@ export default function App() {
                 )}
               >
                 🔮 Launch What-If Analysis{' '}
-              </button>{' '}
+              </button>
             </div>
           )}
           {activeTab === 'admin' && (
@@ -2405,7 +2450,7 @@ function LoginScreen({ onLogin, onSSO, error }) {
 
                                 <button
                                     onClick={() => onLogin(email, pass)}
-                                    style={{ background: '#c9a84c', color: '#0a1520', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12, marginBottom: 12 }}
+                                    style={{ background: '#c9a84c', color: '#0a1520', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12 }}
                                 >
                                     SIGN IN
                                 </button>
@@ -2446,4 +2491,4 @@ function LoginScreen({ onLogin, onSSO, error }) {
                     </div>
                 </div>
             );
-        }
+        }        }
