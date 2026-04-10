@@ -42,41 +42,58 @@ export const formatTenure = (days) => {
 
 export function calcStats(f, currencies, today = new Date()) {
     const todayStr = today.toISOString().split("T")[0];
-    const isChild = !!f.parentId; // Identify if this is a drawn utilization
+    const isChild = !!f.parentId;
+    // Define limit at the top level so it's accessible everywhere in the function
+    const limit = parseFloat(f.facilityAmount) || 0;
 
     const computeStats = () => {
-        const limit = parseFloat(f.facilityAmount) || 0;
+        const baseRate = parseFloat(f.boardRate) || 0;
+        const repayments = f.repayments || [];
+        const drawdowns = f.drawdowns || [];
+
         let interestAccrued = 0;
-        let drawn = f.drawdowns?.reduce((s, d) => s + d.amount, 0) || 0;
-        const principalRepaid = f.repayments?.filter(r => r.type === 'principal').reduce((s, r) => s + r.amount, 0) || 0;
-        const currentBalance = (isChild ? limit : drawn) - principalRepaid;
+        let totalDrawnSoFar = drawdowns.reduce((s, d) => s + d.amount, 0);
+        let totalRepaidSoFar = repayments.filter(r => r.type === 'principal').reduce((s, r) => s + r.amount, 0);
 
-        // --- PERSPECTIVE 1: BANK FACILITY (Parent Relationship) ---
         if (!isChild) {
-            // Immediate accrual on total exposure/limit
             const daysSinceStart = Math.max(0, daysBetween(f.startDate, todayStr));
-            interestAccrued = (limit * (f.boardRate / 100) * (daysSinceStart / 365));
+            interestAccrued = (limit * (baseRate / 100) * (daysSinceStart / 365));
 
-            const available = f.facilityClass === 'Revolving' || f.facilityClass === 'Overdraft/Short Term'
-                ? Math.max(0, limit - (drawn - principalRepaid)) // Repayment adds back to headroom
-                : Math.max(0, limit - drawn); // Term loan: limit is consumed forever
+            const available = (f.facilityClass === 'Revolving' || f.facilityClass === 'Overdraft/Short Term')
+                ? Math.max(0, limit - (totalDrawnSoFar - totalRepaidSoFar))
+                : Math.max(0, limit - totalDrawnSoFar);
 
-            return { drawn, repaid: principalRepaid, outstanding: (drawn - principalRepaid), interest: interestAccrued, available };
-        }
+            return { drawn: totalDrawnSoFar, repaid: totalRepaidSoFar, outstanding: (totalDrawnSoFar - totalRepaidSoFar), interest: interestAccrued, available };
+        } else {
+            const events = [
+                { date: f.startDate, amount: limit, type: 'start' },
+                ...repayments.filter(r => r.type === 'principal').map(r => ({ date: r.date, amount: r.amount, type: 'repay' }))
+            ].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        // --- PERSPECTIVE 2: UTILIZED LOAN (Child Operational) ---
-        else {
-            // Reducing Balance: Interest only on the actual unpaid principal balance
-            const daysSinceStart = Math.max(0, daysBetween(f.startDate, todayStr));
-            interestAccrued = (currentBalance * (f.boardRate / 100) * (daysSinceStart / 365));
-            return { drawn: limit, repaid: principalRepaid, outstanding: currentBalance, interest: interestAccrued, available: 0 };
+            let currentBalance = 0;
+            let lastDate = f.startDate;
+
+            events.forEach(ev => {
+                if (new Date(ev.date) > today) return;
+                const days = Math.max(0, daysBetween(lastDate, ev.date));
+                interestAccrued += (currentBalance * (baseRate / 100) * (days / 365));
+                if (ev.type === 'start') currentBalance = ev.amount;
+                if (ev.type === 'repay') currentBalance -= ev.amount;
+                lastDate = ev.date;
+            });
+
+            const finalDays = Math.max(0, daysBetween(lastDate, todayStr));
+            interestAccrued += (currentBalance * (baseRate / 100) * (finalDays / 365));
+
+            return { drawn: limit, repaid: totalRepaidSoFar, outstanding: currentBalance, interest: interestAccrued, available: 0 };
         }
     };
 
     const stats = computeStats();
     return {
         ...stats,
-        utilPct: (parseFloat(f.facilityAmount) > 0) ? (stats.outstanding / parseFloat(f.facilityAmount)) * 100 : 0
+        // Now 'limit' is correctly recognized here
+        utilPct: (limit > 0) ? (stats.outstanding / limit) * 100 : 0
     };
 }
 

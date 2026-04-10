@@ -3,10 +3,6 @@
   "WorkspaceRootPath": "C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\App.jsx||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\App.jsx||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\main.js||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:main.js||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
@@ -15,12 +11,16 @@
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:preload.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\pages.jsx||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\pages.jsx||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\utils.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\utils.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\App.jsx||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\App.jsx||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\pages.jsx||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\pages.jsx||{14D17961-FE51-464D-9111-C4AF11D7D99A}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\data.js||{14D17961-FE51-464D-9111-C4AF11D7D99A}",
@@ -42,7 +42,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Bookmark",
@@ -50,13 +50,13 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 3,
               "Title": "App.jsx",
               "DocumentMoniker": "C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\App.jsx",
               "RelativeDocumentMoniker": "src\\App.jsx",
               "ToolTip": "C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\App.jsx",
               "RelativeToolTip": "src\\App.jsx",
-              "ViewState": "AgIAAGMJAAAAAAAAAAAhwG8JAAAUAAAAAAAAAA==",
+              "ViewState": "AgIAABQHAAAAAAAAAAAYwCwHAAAUAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003663|",
               "WhenOpened": "2026-03-16T15:13:43.839Z",
               "EditorCaption": ""
@@ -76,7 +76,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "pages.jsx",
               "DocumentMoniker": "C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\pages.jsx",
               "RelativeDocumentMoniker": "src\\pages.jsx",
@@ -102,26 +102,26 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "main.js",
               "DocumentMoniker": "C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\main.js",
               "RelativeDocumentMoniker": "main.js",
               "ToolTip": "C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\main.js",
               "RelativeToolTip": "main.js",
-              "ViewState": "AgIAAIIAAAAAAAAAAAAAAJkAAAADAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAAdAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
               "WhenOpened": "2026-04-09T18:04:10.24Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 1,
               "Title": "preload.js",
               "DocumentMoniker": "C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\preload.js",
               "RelativeDocumentMoniker": "preload.js",
               "ToolTip": "C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\preload.js",
               "RelativeToolTip": "preload.js",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAABaAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAADAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
               "WhenOpened": "2026-04-09T18:04:29.078Z",
               "EditorCaption": ""
@@ -141,13 +141,13 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 2,
               "Title": "utils.js",
               "DocumentMoniker": "C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\utils.js",
               "RelativeDocumentMoniker": "src\\utils.js",
               "ToolTip": "C:\\Users\\21693\\source\\repos\\pstbukkie-code\\finanicial-calql8r-vGem2.0\\src\\utils.js",
               "RelativeToolTip": "src\\utils.js",
-              "ViewState": "AgIAAN4AAAAAAAAAAAAAAPUAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAEkAAAAAAAAAAAAYwGEAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
               "WhenOpened": "2026-03-17T11:47:34.457Z",
               "EditorCaption": ""

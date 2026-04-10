@@ -1786,266 +1786,52 @@ export default function App() {
                 </div>
               </div>{' '}
             </>
-          )}{' '}
-          {activeTab === 'facilities' && (
-            <>
-              {' '}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 10,
-                  alignItems: 'center',
-                  marginBottom: 18,
-                  flexWrap: 'wrap',
-                }}
-              >
-                {' '}
-                <input
-                  placeholder="🔍 Search..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  style={{ width: 200, ...S.inp }}
-                />{' '}
-                <select
-                  value={filterBank}
-                  onChange={(e) => setFilterBank(e.target.value)}
-                  style={{ width: 180, ...S.inp }}
-                >
-                  {' '}
-                  {uniqueBanks.map((b) => (
-                    <option key={b}>{b}</option>
-                  ))}{' '}
-                </select>{' '}
-                <div
-                  style={{
-                    display: 'flex',
-                    background: '#0a1520',
-                    borderRadius: 8,
-                    padding: 2,
-                  }}
-                >
-                  {' '}
-                  <button
-                    onClick={() => setFilterCcy('All')}
-                    style={{
-                      ...mkbtn(
-                        filterCcy === 'All' ? '#1e3a5f' : 'transparent',
-                        filterCcy === 'All' ? '#c9a84c' : '#8aa3be',
-                        'sm'
-                      ),
-                    }}
-                  >
-                    All
-                  </button>{' '}
-                  <button
-                    onClick={() => setFilterCcy('NGN')}
-                    style={{
-                      ...mkbtn(
-                        filterCcy === 'NGN' ? '#1e3a5f' : 'transparent',
-                        filterCcy === 'NGN' ? '#c9a84c' : '#8aa3be',
-                        'sm'
-                      ),
-                    }}
-                  >
-                    NGN
-                  </button>{' '}
-                  <button
-                    onClick={() => setFilterCcy('USD')}
-                    style={{
-                      ...mkbtn(
-                        filterCcy === 'USD' ? '#1e3a5f' : 'transparent',
-                        filterCcy === 'USD' ? '#c9a84c' : '#8aa3be',
-                        'sm'
-                      ),
-                    }}
-                  >
-                    USD
-                  </button>{' '}
-                </div>{' '}
-                <div
-                  style={{
-                    display: 'flex',
-                    background: '#0a1520',
-                    borderRadius: 8,
-                    padding: 2,
-                  }}
-                >
-                  {' '}
-                  <button
-                    onClick={() => setFilterStatus('All')}
-                    style={{
-                      ...mkbtn(
-                        filterStatus === 'All' ? '#1e3a5f' : 'transparent',
-                        filterStatus === 'All' ? '#c9a84c' : '#8aa3be',
-                        'sm'
-                      ),
-                    }}
-                  >
-                    All
-                  </button>{' '}
-                  <button
-                    onClick={() => setFilterStatus('Active')}
-                    style={{
-                      ...mkbtn(
-                        filterStatus === 'Active' ? '#1e3a5f' : 'transparent',
-                        filterStatus === 'Active' ? '#c9a84c' : '#8aa3be',
-                        'sm'
-                      ),
-                    }}
-                  >
-                    Active
-                  </button>{' '}
-                  <button
-                    onClick={() => setFilterStatus('Expired')}
-                    style={{
-                      ...mkbtn(
-                        filterStatus === 'Expired' ? '#1e3a5f' : 'transparent',
-                        filterStatus === 'Expired' ? '#c9a84c' : '#8aa3be',
-                        'sm'
-                      ),
-                    }}
-                  >
-                    Expired
-                  </button>{' '}
-                </div>{' '}
-                <select
-                  value={filterClass}
-                  onChange={(e) => setFilterClass(e.target.value)}
-                  style={{ width: 150, ...S.inp }}
-                >
-                  <option value="All">All Types</option>{' '}
-                  <option value="Term Loan">Term Loan</option>{' '}
-                  <option value="Revolving">Revolving</option>{' '}
-                  <option value="Overdraft/Short Term">
-                    Overdraft/Short Term
-                  </option>
-                  <option value="Trade Finance">Trade Finance</option>{' '}
-                  <option value="Bridge">Bridge</option>{' '}
-                </select>{' '}
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: 12,
-                    color: '#8aa3be',
-                  }}
-                >
-                  {' '}
-                  <input
-                    type="checkbox"
-                    checked={groupByBank}
-                    onChange={(e) => setGroupByBank(e.target.checked)}
-                  />
-                  Group by Bank{' '}
-                </label>{' '}
-                <span
-                  style={{ color: '#5d7a96', fontSize: 12, marginLeft: 'auto' }}
-                >
-                  {filtered.length} of {facilities.length}{' '}
-                </span>{' '}
-              </div>{' '}
-              {groupByBank ? (
-                Object.entries(
-                  filtered.reduce((acc, f) => {
-                    acc[f.bank] = acc[f.bank] || [];
-                    acc[f.bank].push(f);
-                    return acc;
-                  }, {})
-                ).map(([bank, facs]) => (
-                  <div key={bank} style={{ marginBottom: 20 }}>
-                    {' '}
-                    <div
-                      style={{
-                        fontSize: 16,
-                        fontWeight: 700,
-                        color: '#c9a84c',
-                        marginBottom: 12,
-                        padding: '8px 12px',
-                        background: '#0a1520',
-                        borderRadius: 8,
-                      }}
-                    >
-                      {bank} ({facs.length}){' '}
-                    </div>{' '}
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 14,
-                      }}
-                    >
-                      
-                     {facs.filter(f => !f.parentId).map((f) => (
-                          <FacilityCard
-                              key={f.id}
-                              f={f}
-                              onDetail={handleDetailClick}
-                              onEdit={handleEditClick}
-                              setModal={setModal}
-                              setConfirm={setConfirm}
-                              delFac={delFac}
-                              currencies={currencies}
-                              canDrawdown={canDrawdown()}
-                              canRepay={canRepay()}
-                              canRenew={canRenew()}
-                              canEdit={canEditFacilities()}
-                              canDelete={canDeleteFacilities()}
-                          />
-                      ))}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div
-                  style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
-                >
-                  
-                  {filtered.filter(f => !f.parentId).map((f) => (
-                      <FacilityCard
-                          key={f.id}
-                          f={f}
-                          onDetail={handleDetailClick}
-                          onEdit={() => handleEditClick(f)}
-                          setModal={setModal}
-                          setConfirm={setConfirm}
-                          delFac={delFac}
-                          currencies={currencies}
-                          canDrawdown={canDrawdown()}
-                          canRepay={canRepay()}
-                          canRenew={canRenew()}
-                          canEdit={canEditFacilities()}
-                          canDelete={canDeleteFacilities()}
-                      />
-                  ))}
-                </div>
-              )}{' '}
-            </>
           )}
+                  {activeTab === 'facilities' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                          <div style={S.sec}>Bank Relationships (Treasury Layer)</div>
+                          {/* Grouped View */}
+                          {groupByBank ? (
+                              Object.entries(
+                                  filtered.filter(f => !f.parentId).reduce((acc, f) => {
+                                      acc[f.bank] = acc[f.bank] || [];
+                                      acc[f.bank].push(f);
+                                      return acc;
+                                  }, {})
+                              ).map(([bank, facs]) => (
+                                  <div key={bank} style={{ marginBottom: 20 }}>
+                                      <div style={{ fontSize: 16, fontWeight: 700, color: '#c9a84c', marginBottom: 12, padding: '8px 12px', background: '#0a1520', borderRadius: 8 }}>
+                                          {bank} ({facs.length})
+                                      </div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                          {facs.map((f) => (
+                                              <FacilityCard key={f.id} f={f} onDetail={handleDetailClick} onEdit={handleEditClick} setModal={setModal} setConfirm={setConfirm} delFac={delFac} currencies={currencies} />
+                                          ))}
+                                      </div>
+                                  </div>
+                              ))
+                          ) : (
+                              /* List View: ONLY PARENTS */
+                              filtered.filter(f => !f.parentId).map((f) => (
+                                  <FacilityCard key={f.id} f={f} onDetail={handleDetailClick} onEdit={() => handleEditClick(f)} setModal={setModal} setConfirm={setConfirm} delFac={delFac} currencies={currencies} />
+                              ))
+                          )}
+                      </div>
+                  )}
+
                   {activeTab === 'utilizations' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                          <div style={S.sec}>Child Loans (Utilized Principal)</div>
+                          <div style={S.sec}>Active Utilizations (Operational Layer)</div>
+                          {/* List View: ONLY CHILDREN */}
                           {allStats.filter(f => f.parentId).map((f) => (
                               <FacilityCard
-                                  key={f.id}
-                                  f={f}
-                                  onDetail={handleDetailClick}
-                                  onEdit={() => handleEditClick(f)}
-                                  setModal={setModal}
-                                  setConfirm={setConfirm}
-                                  delFac={delFac}
-                                  currencies={currencies}
-                                  canDrawdown={false} // Hidden: Children cannot draw down further
-                                  canRepay={canRepay()}
-                                  canRenew={false}
-                                  canEdit={canEditFacilities()}
-                                  canDelete={canDeleteFacilities()}
+                                  key={f.id} f={f} onDetail={handleDetailClick} onEdit={() => handleEditClick(f)}
+                                  setModal={setModal} setConfirm={setConfirm} delFac={delFac} currencies={currencies}
+                                  canDrawdown={false} canRepay={canRepay()} canRenew={false}
                               />
                           ))}
                           {allStats.filter(f => f.parentId).length === 0 && (
-                              <div style={{ color: '#8aa3be', textAlign: 'center', padding: 40 }}>
-                                  No active utilizations found.
-                              </div>
+                              <div style={{ color: '#8aa3be', textAlign: 'center', padding: 40 }}>No active utilizations. Perform a drawdown in 'Bank Relationships' to start.</div>
                           )}
                       </div>
                   )}
@@ -2414,81 +2200,76 @@ export default function App() {
     }
 
 function LoginScreen({ onLogin, onSSO, error }) {
-            const [email, setEmail] = useState('');
-            const [pass, setPass] = useState('');
-            const [isSSO, setIsSSO] = useState(false);
+    const [email, setEmail] = useState('');
+    const [pass, setPass] = useState('');
+    const [isSSO, setIsSSO] = useState(false);
 
-            return (
-                <div style={{
-                    height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: '#070e16', color: '#e8f0fe', fontFamily: 'sans-serif'
-                }}>
-                    <div style={{
-                        background: '#0a1520', border: '1px solid #1e3a5f', borderRadius: '12px',
-                        width: 400, padding: 40, textAlign: 'center'
-                    }}>
-                        <h2 style={{ color: '#c9a84c', marginBottom: 20 }}>CreditDesk Pro</h2>
-                        <p style={{ fontSize: 13, color: '#8aa3be', marginBottom: 24 }}>Secure Portfolio Access</p>
-
-                        {error && <div style={{ color: '#ef4444', marginBottom: 16, fontSize: 12 }}>{error}</div>}
-
-                        {!isSSO ? (
-                            <>
-                                <input
-                                    placeholder="Email Address"
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
-                                    style={{ background: '#0d1822', border: '1px solid #1e3a5f', color: '#fff', padding: '10px', borderRadius: '6px', marginBottom: 12, width: '100%', boxSizing: 'border-box' }}
-                                />
-                                <input
-                                    type="password"
-                                    placeholder="Password"
-                                    value={pass}
-                                    onChange={e => setPass(e.target.value)}
-                                    style={{ background: '#0d1822', border: '1px solid #1e3a5f', color: '#fff', padding: '10px', borderRadius: '6px', marginBottom: 24, width: '100%', boxSizing: 'border-box' }}
-                                />
-
-                                <button
-                                    onClick={() => onLogin(email, pass)}
-                                    style={{ background: '#c9a84c', color: '#0a1520', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12 }}
-                                >
-                                    SIGN IN
-                                </button>
-
-                                <button
-                                    onClick={() => setIsSSO(true)}
-                                    style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12 }}
-                                >
-                                    🔐 SSO Authentication
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <div style={{ marginBottom: 16, fontSize: 13, color: '#8aa3be' }}>
-                                    Attempting Single Sign-On...
-                                </div>
-                                <button
-                                    onClick={async () => {
-                                        setIsSSO(false);
-                                        await onSSO();
-                                    }}
-                                    style={{ background: '#22c55e', color: '#0a1520', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12, marginBottom: 12 }}
-                                >
-                                    ✓ Authenticate via SSO
-                                </button>
-                                <button
-                                    onClick={() => setIsSSO(false)}
-                                    style={{ background: '#6b7280', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12 }}
-                                >
-                                    Back to Manual Login
-                                </button>
-                            </>
-                        )}
-
-                        <div style={{ marginTop: 20, fontSize: 11, color: '#5d7a96' }}>
-                            {isSSO ? 'Click the button above to authenticate' : 'Enter credentials or use SSO'}
+    return (
+        <div style={{
+            height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#070e16', color: '#e8f0fe', fontFamily: 'sans-serif'
+        }}>
+            <div style={{
+                background: '#0a1520', border: '1px solid #1e3a5f', borderRadius: '12px',
+                width: 400, padding: 40, textAlign: 'center'
+            }}>
+                <h2 style={{ color: '#c9a84c', marginBottom: 20 }}>CreditDesk Pro</h2>
+                <p style={{ fontSize: 13, color: '#8aa3be', marginBottom: 24 }}>Secure Portfolio Access</p>
+                {error && <div style={{ color: '#ef4444', marginBottom: 16, fontSize: 12 }}>{error}</div>}
+                {!isSSO ? (
+                    <>
+                        <input
+                            placeholder="Email Address"
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            style={{ background: '#0d1822', border: '1px solid #1e3a5f', color: '#fff', padding: '10px', borderRadius: '6px', marginBottom: 12, width: '100%', boxSizing: 'border-box' }}
+                        />
+                        <input
+                            type="password"
+                            placeholder="Password"
+                            value={pass}
+                            onChange={e => setPass(e.target.value)}
+                            style={{ background: '#0d1822', border: '1px solid #1e3a5f', color: '#fff', padding: '10px', borderRadius: '6px', marginBottom: 24, width: '100%', boxSizing: 'border-box' }}
+                        />
+                        <button
+                            onClick={() => onLogin(email, pass)}
+                            style={{ background: '#c9a84c', color: '#0a1520', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12, marginBottom: 12 }}
+                        >
+                            SIGN IN
+                        </button>
+                        <button
+                            onClick={() => setIsSSO(true)}
+                            style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12 }}
+                        >
+                            🔐 SSO Authentication
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <div style={{ marginBottom: 16, fontSize: 13, color: '#8aa3be' }}>
+                            Attempting Single Sign-On...
                         </div>
-                    </div>
+                        <button
+                            onClick={async () => {
+                                setIsSSO(false);
+                                await onSSO();
+                            }}
+                            style={{ background: '#22c55e', color: '#0a1520', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12, marginBottom: 12 }}
+                        >
+                            ✓ Authenticate via SSO
+                        </button>
+                        <button
+                            onClick={() => setIsSSO(false)}
+                            style={{ background: '#6b7280', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12 }}
+                        >
+                            Back to Manual Login
+                        </button>
+                    </>
+                )}
+                <div style={{ marginTop: 20, fontSize: 11, color: '#5d7a96' }}>
+                    {isSSO ? 'Click the button above to authenticate' : 'Enter credentials or use SSO'}
                 </div>
-            );
-        }        }
+            </div>
+        </div>
+    );
+}
