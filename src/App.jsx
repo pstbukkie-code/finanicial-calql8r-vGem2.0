@@ -64,6 +64,12 @@ function useDateTime() {
 
 /// --- Main App Component ---
 export default function App() {
+    const [facilities, setFacilities] = useState(() => {
+        const saved = localStorage.getItem('my_facilities');
+        // If no saved data, use the empty list from your data.js
+        return saved ? JSON.parse(saved) : [];
+    });
+
     // --- AUTHENTICATION STATE ---
     const [user, setUser] = useState(null);
     const [authError, setAuthError] = useState('');
@@ -1524,7 +1530,7 @@ export default function App() {
           currencies={currencies}
           onClose={() => setSelectedFacility(null)}
         />
-      )}{' '}
+      )}
       {selectedSubsidiary && (
         <SubsidiaryDetailModal
           subsidiary={selectedSubsidiary}
@@ -1533,54 +1539,61 @@ export default function App() {
           displayCcy={displayCcy}
           onClose={() => setSelectedSubsidiary(null)}
         />
-      )}{' '}
-      {confirm && (
-        <ConfirmModal
-          message={confirm.message}
-          onConfirm={confirm.onConfirm}
-          onClose={() => setConfirm(null)}
-        />
-      )}{' '}
-    </div>
-  );
-}
-function LoginScreen({ onLogin, error }) {
-    const [email, setEmail] = useState('');
-    const [pass, setPass] = useState('');
-
-    return (
-        <div style={{
-            height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#070e16', color: '#e8f0fe', fontFamily: 'sans-serif'
-        }}>
-            <div style={{ ...S.card, width: 400, padding: 40, textAlign: 'center' }}>
-                <h2 style={{ color: '#c9a84c', marginBottom: 20 }}>CreditDesk Pro</h2>
-                <p style={{ fontSize: 13, color: '#8aa3be', marginBottom: 24 }}>Secure Portfolio Access</p>
-
-                {error && <div style={{ color: '#ef4444', marginBottom: 16, fontSize: 12 }}>{error}</div>}
-
-                <input
-                    placeholder="Email Address"
-                    value={email} onChange={e => setEmail(e.target.value)}
-                    style={{ ...S.inp, marginBottom: 12, width: '100%' }}
-                />
-                <input
-                    type="password" placeholder="Password"
-                    value={pass} onChange={e => setPass(e.target.value)}
-                    style={{ ...S.inp, marginBottom: 24, width: '100%' }}
-                />
-
-                <button
-                    onClick={() => onLogin(email, pass)}
-                    style={{ ...mkbtn('#c9a84c', '#0a1520'), width: '100%', padding: 12 }}
-                >
-                    SIGN IN
-                </button>
-
-                <div style={{ marginTop: 20, fontSize: 11, color: '#5d7a96' }}>
-                    Attempting System Authentication...
-                </div>
+      )}
+                {confirm && (
+                    <ConfirmModal
+                        message={confirm.message}
+                        onConfirm={confirm.onConfirm}
+                        onClose={() => setConfirm(null)}
+                    />
+                )}
             </div>
-        </div>
-    );
-}
+        );
+    }
+
+function LoginScreen({ onLogin, error }) {
+            const [email, setEmail] = useState('');
+            const [pass, setPass] = useState('');
+
+            return (
+                <div style={{
+                    height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: '#070e16', color: '#e8f0fe', fontFamily: 'sans-serif'
+                }}>
+                    <div style={{
+                        background: '#0a1520', border: '1px solid #1e3a5f', borderRadius: '12px',
+                        width: 400, padding: 40, textAlign: 'center'
+                    }}>
+                        <h2 style={{ color: '#c9a84c', marginBottom: 20 }}>CreditDesk Pro</h2>
+                        <p style={{ fontSize: 13, color: '#8aa3be', marginBottom: 24 }}>Secure Portfolio Access</p>
+
+                        {error && <div style={{ color: '#ef4444', marginBottom: 16, fontSize: 12 }}>{error}</div>}
+
+                        <input
+                            placeholder="Email Address"
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            style={{ background: '#0d1822', border: '1px solid #1e3a5f', color: '#fff', padding: '10px', borderRadius: '6px', marginBottom: 12, width: '100%' }}
+                        />
+                        <input
+                            type="password"
+                            placeholder="Password"
+                            value={pass}
+                            onChange={e => setPass(e.target.value)}
+                            style={{ background: '#0d1822', border: '1px solid #1e3a5f', color: '#fff', padding: '10px', borderRadius: '6px', marginBottom: 24, width: '100%' }}
+                        />
+
+                        <button
+                            onClick={() => onLogin(email, pass)}
+                            style={{ background: '#c9a84c', color: '#0a1520', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', width: '100%', padding: 12 }}
+                        >
+                            SIGN IN
+                        </button>
+
+                        <div style={{ marginTop: 20, fontSize: 11, color: '#5d7a96' }}>
+                            Attempting System Authentication...
+                        </div>
+                    </div>
+                </div>
+            );
+        }
