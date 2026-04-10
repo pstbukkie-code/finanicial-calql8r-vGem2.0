@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { S, mkbtn, Badge, UtilBar, Modal } from "./ui.jsx";
 import { fmtN, fmtPct, daysBetween, calcStats, calcDrawdownSubsidiaryStats, generateRepaymentSchedule, formatTenure } from "./utils";
 
-// --- Interest & Fees Page (filtered by bank then facility) ---
+// --- Interest & Fees Page ---
 export function InterestFeesPage({ facilities, currencies, displayCcy }) {
     const [filterBank, setFilterBank] = useState('All');
     const [filterFacility, setFilterFacility] = useState('All');
@@ -78,7 +78,6 @@ export function InterestFeesPage({ facilities, currencies, displayCcy }) {
                     })}
                 </select>
             </div>
-
             <h4 style={S.sec}>Interest</h4>
             <table style={S.table}>
                 <thead>
@@ -102,7 +101,6 @@ export function InterestFeesPage({ facilities, currencies, displayCcy }) {
                     </tr>
                 </tbody>
             </table>
-
             <h4 style={{ ...S.sec, marginTop: 20 }}>Fees</h4>
             <table style={S.table}>
                 <thead>
@@ -132,7 +130,6 @@ export function InterestFeesPage({ facilities, currencies, displayCcy }) {
                     </tr>
                 </tbody>
             </table>
-
             <div style={{ marginTop: 16, fontSize: 16, fontWeight: 'bold', textAlign: 'right' }}>
                 Grand Total: {fmtN(grandTotal, displayCcy === 'NGN' ? '₦' : '$')}
             </div>
@@ -140,33 +137,29 @@ export function InterestFeesPage({ facilities, currencies, displayCcy }) {
     );
 }
 
-// --- Drawdowns Page (lists all drawdowns with subsidiary details) ---
+// --- Drawdowns Page ---
 export function DrawdownsPage({ facilities, currencies, displayCcy, onSubsidiaryRepay }) {
     const [filterSubsidiary, setFilterSubsidiary] = useState('All');
     const [selectedDrawdown, setSelectedDrawdown] = useState(null);
-
     const uniqueSubsidiaries = useMemo(
         () => ['All', ...new Set(facilities.flatMap((f) => f.drawdowns.map((d) => d.subsidiary)))],
         [facilities]
     );
-
-    const rows = facilities
-        .flatMap((f) =>
-            f.drawdowns.map((d) => {
-                const stats = calcDrawdownSubsidiaryStats(d, f.boardRate);
-                return {
-                    ...d,
-                    facility: f,
-                    facilityName: f.facilityName,
-                    bank: f.bank,
-                    subsidiary: d.subsidiary,
-                    outstanding: stats.outstanding,
-                    interest: stats.interest,
-                    rate: d.interestRateOverride ?? f.boardRate + (d.marginApplied ? d.marginRate : 0),
-                };
-            })
-        )
-        .filter((r) => filterSubsidiary === 'All' || r.subsidiary === filterSubsidiary);
+    const rows = facilities.flatMap((f) =>
+        f.drawdowns.map((d) => {
+            const stats = calcDrawdownSubsidiaryStats(d, f.boardRate);
+            return {
+                ...d,
+                facility: f,
+                facilityName: f.facilityName,
+                bank: f.bank,
+                subsidiary: d.subsidiary,
+                outstanding: stats.outstanding,
+                interest: stats.interest,
+                rate: d.interestRateOverride ?? f.boardRate + (d.marginApplied ? d.marginRate : 0),
+            };
+        })
+    ).filter((r) => filterSubsidiary === 'All' || r.subsidiary === filterSubsidiary);
 
     const toDisplay = (amount, fromCcy) => {
         if (displayCcy === fromCcy) return amount;
@@ -178,14 +171,8 @@ export function DrawdownsPage({ facilities, currencies, displayCcy, onSubsidiary
     return (
         <div style={S.card}>
             <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-                <select
-                    value={filterSubsidiary}
-                    onChange={(e) => setFilterSubsidiary(e.target.value)}
-                    style={{ width: 200, ...S.inp }}
-                >
-                    {uniqueSubsidiaries.map((s) => (
-                        <option key={s}>{s}</option>
-                    ))}
+                <select value={filterSubsidiary} onChange={(e) => setFilterSubsidiary(e.target.value)} style={{ width: 200, ...S.inp }}>
+                    {uniqueSubsidiaries.map((s) => (<option key={s}>{s}</option>))}
                 </select>
             </div>
             <table style={S.table}>
@@ -233,7 +220,7 @@ export function DrawdownsPage({ facilities, currencies, displayCcy, onSubsidiary
     );
 }
 
-// --- Drawdown Detail Modal (for subsidiary repayments) ---
+// --- Drawdown Detail Modal ---
 export function DrawdownDetailModal({ drawdown, facility, currencies, onClose, onRepay }) {
     const [repayAmount, setRepayAmount] = useState('');
     const [repayType, setRepayType] = useState('principal');
@@ -273,30 +260,15 @@ export function DrawdownDetailModal({ drawdown, facility, currencies, onClose, o
     );
 }
 
-// --- Repayment Schedule Page (per facility) ---
+// --- Repayment Schedule Page ---
 export function RepaymentSchedulePage({ facilities, currencies, displayCcy }) {
     const [filterBank, setFilterBank] = useState('All');
     const [filterFacility, setFilterFacility] = useState('All');
 
-    const uniqueBanks = useMemo(
-        () => ['All', ...new Set(facilities.map((f) => f.bank))],
-        [facilities]
-    );
-
-    const facilitiesForBank = useMemo(() => {
-        if (filterBank === 'All') return facilities;
-        return facilities.filter((f) => f.bank === filterBank);
-    }, [facilities, filterBank]);
-
-    const uniqueFacilities = useMemo(
-        () => ['All', ...facilitiesForBank.map((f) => f.id)],
-        [facilitiesForBank]
-    );
-
-    const selectedFacility = useMemo(() => {
-        if (filterFacility === 'All') return null;
-        return facilities.find((f) => f.id === filterFacility);
-    }, [facilities, filterFacility]);
+    const uniqueBanks = useMemo(() => ['All', ...new Set(facilities.map((f) => f.bank))], [facilities]);
+    const facilitiesForBank = useMemo(() => filterBank === 'All' ? facilities : facilities.filter((f) => f.bank === filterBank), [facilities, filterBank]);
+    const uniqueFacilities = useMemo(() => ['All', ...facilitiesForBank.map((f) => f.id)], [facilitiesForBank]);
+    const selectedFacility = useMemo(() => filterFacility === 'All' ? null : facilities.find((f) => f.id === filterFacility), [facilities, filterFacility]);
 
     const toDisplay = (amount, fromCcy) => {
         if (displayCcy === fromCcy) return amount;
@@ -307,7 +279,6 @@ export function RepaymentSchedulePage({ facilities, currencies, displayCcy }) {
     const schedule = [];
     if (selectedFacility) {
         const f = selectedFacility;
-        const sym = displayCcy === 'NGN' ? '₦' : '$';
         const start = new Date(f.startDate);
         const maturity = new Date(f.maturity);
         const monthsDiff = (maturity.getFullYear() - start.getFullYear()) * 12 + (maturity.getMonth() - start.getMonth());
@@ -326,21 +297,10 @@ export function RepaymentSchedulePage({ facilities, currencies, displayCcy }) {
     return (
         <div style={S.card}>
             <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-                <select
-                    value={filterBank}
-                    onChange={(e) => {
-                        setFilterBank(e.target.value);
-                        setFilterFacility('All');
-                    }}
-                    style={{ width: 200, ...S.inp }}
-                >
+                <select value={filterBank} onChange={(e) => { setFilterBank(e.target.value); setFilterFacility('All'); }} style={{ width: 200, ...S.inp }}>
                     {uniqueBanks.map((b) => <option key={b}>{b}</option>)}
                 </select>
-                <select
-                    value={filterFacility}
-                    onChange={(e) => setFilterFacility(e.target.value)}
-                    style={{ width: 250, ...S.inp }}
-                >
+                <select value={filterFacility} onChange={(e) => setFilterFacility(e.target.value)} style={{ width: 250, ...S.inp }}>
                     {uniqueFacilities.map((id) => {
                         if (id === 'All') return <option key="All" value="All">All Facilities</option>;
                         const fac = facilities.find((f) => f.id === id);
@@ -351,12 +311,7 @@ export function RepaymentSchedulePage({ facilities, currencies, displayCcy }) {
             {selectedFacility && (
                 <table style={S.table}>
                     <thead>
-                        <tr>
-                            <th style={S.th}>Payment Date</th>
-                            <th style={S.th}>Principal Due</th>
-                            <th style={S.th}>Interest Due</th>
-                            <th style={S.th}>Total</th>
-                        </tr>
+                        <tr><th style={S.th}>Payment Date</th><th style={S.th}>Principal Due</th><th style={S.th}>Interest Due</th><th style={S.th}>Total</th></tr>
                     </thead>
                     <tbody>
                         {schedule.map((s, idx) => (
@@ -380,44 +335,34 @@ export function FacilityCard({
     setModal,
     setConfirm,
     delFac,
-    setSelectedFacility,
+    onEdit,
+    onDetail,
     currencies,
 }) {
     const stats = calcStats(f, currencies);
     const sym = f.ccy === 'NGN' ? '₦' : '$';
-
-    // 1. Calculate the "All-in cost" including management and commitment fees
-    const allIn = (parseFloat(f.boardRate) || 0) +
-        (parseFloat(f.mgmtFee) || 0) +
-        (parseFloat(f.commitFee) || 0);
-
-    // 2. Calculate real-time "Days Left" for the badge
     const daysLeft = daysBetween(new Date().toISOString().split('T')[0], f.maturity);
 
     return (
-        <div style={{ ...S.card, padding: '24px' }}>
+        <div
+            style={{ ...S.card, padding: '24px', cursor: 'pointer' }}
+            onClick={() => onDetail(f)} // Clicking the card opens Detail Info
+        >
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20 }}>
-                <div style={{ flex: '0 0 300px' }}>
+                <div style={{ flex: '1' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-                        {/* Show the new Loan Number and Facility Name */}
                         <span style={{ color: '#5d7a96', fontSize: 12, fontWeight: 'bold' }}>{f.loanNumber || 'NEW'}</span>
                         <strong
                             style={{ fontSize: 18, cursor: 'pointer', color: '#c9a84c' }}
-                            onClick={() => setSelectedFacility(f)}
+                            onClick={(e) => {
+                                e.stopPropagation(); // Stops the Info popup
+                                onDetail(f);         // Opens Detail Modal
+                            }}
                         >
                             {f.facilityName}
                         </strong>
                         <Badge status={f.status} />
-                        <span
-                            style={{
-                                background: f.ccy === 'NGN' ? '#1a2d45' : '#2d1b00',
-                                color: f.ccy === 'NGN' ? '#60a5fa' : '#f59e0b',
-                                borderRadius: 4,
-                                padding: '2px 7px',
-                                fontSize: 12,
-                                fontWeight: 700,
-                            }}
-                        >
+                        <span style={{ background: f.ccy === 'NGN' ? '#1a2d45' : '#2d1b00', color: f.ccy === 'NGN' ? '#60a5fa' : '#f59e0b', borderRadius: 4, padding: '2px 7px', fontSize: 12, fontWeight: 700 }}>
                             {f.ccy}
                         </span>
                     </div>
@@ -426,74 +371,58 @@ export function FacilityCard({
                         {f.bank} · {f.facilityClass} · {f.boardRate}% Rate
                     </div>
 
+                    {/* THE RESTORED DATA GRID */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
                         <div>
                             <span style={{ fontSize: 12, color: '#8aa3be' }}>Limit</span>
-                            <div style={{ fontSize: 16, fontFamily: 'monospace' }}>
-                                {fmtN(parseFloat(f.facilityAmount) || 0, sym)}
-                            </div>
+                            <div style={{ fontSize: 16, fontFamily: 'monospace' }}>{fmtN(parseFloat(f.facilityAmount) || 0, sym)}</div>
                         </div>
                         <div>
-                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Current Owed (Principal)</span>
-                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#f59e0b' }}>
-                                {fmtN(stats.outstanding, sym)}
-                            </div>
+                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Current Owed</span>
+                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#f59e0b' }}>{fmtN(stats.outstanding, sym)}</div>
                         </div>
                         <div>
-                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Available Headroom</span>
-                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#22c55e' }}>
-                                {fmtN(stats.available, sym)}
-                            </div>
+                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Available</span>
+                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#22c55e' }}>{fmtN(stats.available, sym)}</div>
                         </div>
                         <div>
-                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Accrued Interest</span>
-                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#a78bfa' }}>
-                                {fmtN(stats.interest, sym)}
-                            </div>
+                            <span style={{ fontSize: 12, color: '#8aa3be' }}>Accrued Int.</span>
+                            <div style={{ fontSize: 16, fontFamily: 'monospace', color: '#a78bfa' }}>{fmtN(stats.interest, sym)}</div>
                         </div>
                     </div>
 
                     <div style={{ marginTop: 12 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                             <span style={{ fontSize: 12, color: '#8aa3be' }}>Utilization</span>
-                            <span style={{ fontSize: 14, fontWeight: 600, color: stats.utilPct > 90 ? '#ef4444' : '#22c55e' }}>
-                                {fmtPct(stats.utilPct)}
-                            </span>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: stats.utilPct > 90 ? '#ef4444' : '#22c55e' }}>{fmtPct(stats.utilPct)}</span>
                         </div>
                         <UtilBar pct={stats.utilPct} />
                     </div>
 
                     <div style={{ marginTop: 12, display: 'flex', gap: 15 }}>
-                        <div style={{ fontSize: 11, color: '#8aa3be' }}>
-                            Mgt Fee: <span style={{ color: '#e8f0fe' }}>{fmtN(stats.mgtFeeAmount, sym)}</span>
-                        </div>
-                        <div style={{ fontSize: 11, color: '#8aa3be' }}>
-                            Days to Maturity: <span style={{ color: daysLeft < 30 ? '#ef4444' : '#22c55e' }}>{daysLeft < 0 ? 'Expired' : daysLeft}</span>
-                        </div>
+                        <div style={{ fontSize: 11, color: '#8aa3be' }}>Mgt Fee: <span style={{ color: '#e8f0fe' }}>{fmtN(stats.mgtFeeAmount, sym)}</span></div>
+                        <div style={{ fontSize: 11, color: '#8aa3be' }}>Days to Maturity: <span style={{ color: daysLeft < 30 ? '#ef4444' : '#22c55e' }}>{daysLeft < 0 ? 'Expired' : daysLeft}</span></div>
                     </div>
                 </div>
 
-                <div style={{ flex: '0 0 120px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {/* ACTION BUTTONS COLUMN */}
+                <div
+                    style={{ flex: '0 0 120px', display: 'flex', flexDirection: 'column', gap: 8 }}
+                    onClick={(e) => e.stopPropagation()} // Clicking buttons won't trigger the card background
+                >
                     {f.status === 'Active' && (
                         <>
-                            <button onClick={() => setModal({ type: 'drawdown', facilityId: f.id })} style={mkbtn('#1d4ed8')}>
-                                ↓ Drawdown
-                            </button>
-                            <button onClick={() => setModal({ type: 'repay', facilityId: f.id })} style={mkbtn('#059669')}>
-                                ↩ Repay
-                            </button>
+                            <button onClick={() => setModal({ type: 'drawdown', facilityId: f.id })} style={mkbtn('#1d4ed8')}>↓ Drawdown</button>
+                            <button onClick={() => setModal({ type: 'repay', facilityId: f.id })} style={mkbtn('#059669')}>↩ Repay</button>
+                            <button onClick={() => setModal({ type: 'renew', facilityId: f.id })} style={mkbtn('#1e3a5f', '#c9a84c')}>♻️ Renew</button>
                         </>
                     )}
-                    <button onClick={() => setModal({ type: 'editFac', facilityId: f.id })} style={mkbtn('#374151', '#fbbf24')}>
-                        ✏️ Edit
-                    </button>
+                    <button onClick={() => onEdit(f)} style={mkbtn('#374151', '#fbbf24')}>✏️ Edit</button>
                     <button
-                        onClick={() =>
-                            setConfirm({
-                                message: `Delete "${f.facilityName}"?`,
-                                onConfirm: () => delFac(f.id),
-                            })
-                        }
+                        onClick={() => setConfirm({
+                            message: `Delete "${f.facilityName}"?`,
+                            onConfirm: () => delFac(f.id)
+                        })}
                         style={mkbtn('#7f1d1d', '#fca5a5')}
                     >
                         🗑 Delete
@@ -504,41 +433,30 @@ export function FacilityCard({
     );
 }
 
-// --- Performance Subcategory under Facilities ---
+// --- Performance Page ---
 export function PerformancePage({ facilities, currencies, displayCcy }) {
     return (
         <div style={S.card}>
             <div style={S.sec}>Loan Performance Tracking</div>
             <table style={S.table}>
                 <thead>
-                    <tr>
-                        <th style={S.th}>Facility</th>
-                        <th style={S.th}>Bank</th>
-                        <th style={S.th}>Principal Due</th>
-                        <th style={S.th}>Principal Paid</th>
-                        <th style={S.th}>Principal Status</th>
-                        <th style={S.th}>Interest Due</th>
-                        <th style={S.th}>Interest Paid</th>
-                        <th style={S.th}>Interest Status</th>
-                    </tr>
+                    <tr><th style={S.th}>Facility</th><th style={S.th}>Bank</th><th style={S.th}>Principal Due</th><th style={S.th}>Principal Paid</th><th style={S.th}>Principal Status</th><th style={S.th}>Interest Due</th><th style={S.th}>Interest Paid</th><th style={S.th}>Interest Status</th></tr>
                 </thead>
                 <tbody>
                     {facilities.map((f) => {
                         const stats = calcStats(f, currencies);
-                        const totalDue = f.facilityAmount;
                         const principalPaid = stats.repaid;
-                        const principalStatus = principalPaid >= totalDue ? 'Paid' : principalPaid > 0 ? 'Partial' : 'Outstanding';
-                        const interestDue = stats.interest;
+                        const principalStatus = principalPaid >= f.facilityAmount ? 'Paid' : principalPaid > 0 ? 'Partial' : 'Outstanding';
                         const interestPaid = (f.repayments || []).filter(r => r.type === 'interest').reduce((sum, r) => sum + r.amount, 0);
-                        const interestStatus = interestPaid >= interestDue ? 'Paid' : interestPaid > 0 ? 'Partial' : 'Outstanding';
+                        const interestStatus = interestPaid >= stats.interest ? 'Paid' : interestPaid > 0 ? 'Partial' : 'Outstanding';
                         return (
                             <tr key={f.id}>
                                 <td style={S.td}>{f.facilityName}</td>
                                 <td style={S.td}>{f.bank}</td>
-                                <td style={S.td}>{fmtN(totalDue, displayCcy === 'NGN' ? '₦' : '$')}</td>
+                                <td style={S.td}>{fmtN(f.facilityAmount, displayCcy === 'NGN' ? '₦' : '$')}</td>
                                 <td style={S.td}>{fmtN(principalPaid, displayCcy === 'NGN' ? '₦' : '$')}</td>
                                 <td style={S.td}><Badge status={principalStatus} /></td>
-                                <td style={S.td}>{fmtN(interestDue, displayCcy === 'NGN' ? '₦' : '$')}</td>
+                                <td style={S.td}>{fmtN(stats.interest, displayCcy === 'NGN' ? '₦' : '$')}</td>
                                 <td style={S.td}>{fmtN(interestPaid, displayCcy === 'NGN' ? '₦' : '$')}</td>
                                 <td style={S.td}><Badge status={interestStatus} /></td>
                             </tr>

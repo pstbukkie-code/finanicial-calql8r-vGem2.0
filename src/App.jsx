@@ -70,6 +70,28 @@ export default function App() {
         return saved ? JSON.parse(saved) : [];
     });
 
+    const handleEditClick = async (loan) => {
+        try {
+            // Check lock (if Electron API is available)
+            if (window.electronAPI?.checkLock) {
+                const lockStatus = await window.electronAPI.checkLock(loan.id);
+                if (lockStatus.isLocked && lockStatus.user !== user.displayName) {
+                    alert(`STOP: ${lockStatus.user} is currently editing this facility.`);
+                    return;
+                }
+                // Set lock
+                await window.electronAPI.setLock(loan.id, user.displayName);
+            }
+        } catch (err) {
+            console.warn('Lock check failed (Electron API not available):', err);
+        }
+        setModal({ type: 'editFac', facilityId: loan.id });
+    };
+
+    const handleDetailClick = (loan) => {
+        setSelectedFacility(loan);
+    };
+
     // --- AUTHENTICATION STATE ---
     const [user, setUser] = useState(null);
     const [authError, setAuthError] = useState('');
@@ -78,22 +100,27 @@ export default function App() {
     // Auto-Login: Check if the laptop user is authorized
     useEffect(() => {
         const autoLogin = async () => {
-            // Check if we are actually in the Electron environment
             if (window.electronAPI && window.electronAPI.verifyUser) {
                 try {
                     const result = await window.electronAPI.verifyUser({ isSystemLogin: true });
                     if (result.success) {
                         setUser(result.user);
+
+                        // --- NEW: Load SharePoint Data ---
+                        const savedLoans = await window.electronAPI.loadLoans();
+                        if (savedLoans.length > 0) {
+                            setFacilities(savedLoans);
+                        }
+
                         setLoginMode('authenticated');
                     } else {
-                        setLoginMode('login'); // Show login screen if system user isn't in users.json
+                        setLoginMode('login');
                     }
                 } catch (err) {
-                    console.error("Auth Bridge Error:", err);
+                    console.error("Auth/Load Bridge Error:", err);
                     setLoginMode('login');
                 }
             } else {
-                // If we are NOT in Electron, show the login screen anyway
                 setLoginMode('login');
             }
         };
@@ -292,52 +319,136 @@ export default function App() {
     { name: 'Total Limits', value: totalFacilityAmount },
     { name: 'Total Drawdown', value: totalDrawn },
     { name: 'Headroom', value: totalAvailable },
-  ]; // --- Handlers ---
+    ];
+    // --- Handlers ---
 
-    const addFac = (f) => {
+    // 1. ADD FACILITY
+    const addFac = async (f) => {
         const nextNumber = facilities.length + 1;
-        setFacilities([
-            ...facilities,
-            {
-                ...f,
-                id: 'F' + Date.now(),
-                loanNumber: `LN-${String(nextNumber).padStart(3, '0')}`, // Automatically creates LN-001, LN-002, etc.
-                drawdowns: [],
-                repayments: []
-            },
-        ]);
-    };
-  const editFac = (u) =>
-    setFacilities(facilities.map((f) => (f.id === u.id ? { ...f, ...u } : f)));
-  const delFac = (id) => setFacilities(facilities.filter((f) => f.id !== id));
-  const addDD = (fid, d) =>
-    setFacilities(
-      facilities.map((f) =>
-        f.id === fid ? { ...f, drawdowns: [...f.drawdowns, d] } : f
-      )
-        );
-    const renewFac = (oldId, renewalData) => {
-        setFacilities(prev => {
-            const oldFac = prev.find(f => f.id === oldId);
-            // 1. Mark the old facility as "Renewed"
-            const updatedPrev = prev.map(f =>
-                f.id === oldId ? { ...f, status: 'Renewed', remarks: (f.remarks || "") + `\nRenewed on ${renewalData.startDate}` } : f
-            );
+        const newFac = {
+            ...f,
+            id: 'F' + Date.now(),
+            loanNumber: `LN-${String(nextNumber).padStart(3, '0')}`,
+            drawdowns: [],
+            repayments: []
+        };
 
-            // 2. Create the new facility entry carrying over history
-            const newFac = {
-                ...oldFac,
-                ...renewalData,
-                id: 'F' + Date.now(),
-                status: 'Active',
-                drawdowns: oldFac.drawdowns,
-                repayments: oldFac.repayments,
-                remarks: `Renewal of facility ${oldFac.facilityName}`
-            };
-
-            return [...updatedPrev, newFac];
-        });
+        try {
+            if (window.electronAPI?.saveLoan) {
+                await window.electronAPI.saveLoan(newFac, user?.displayName || 'system');
+                const updated = await window.electronAPI.loadLoans();
+                setFacilities(updated);
+                alert("✅ Success: Facility registered on SharePoint.");
+            } else {
+                setFacilities(prev => [...prev, newFac]);
+            }
+        } catch (err) {
+            console.error('Save failed:', err);
+            setFacilities(prev => [...prev, newFac]);
+        }
+        setModal(null);
     };
+
+    // 2. EDIT FACILITY (With Auto-Unlock)
+    const editFac = async (u) => {
+        const original = facilities.find(f => f.id === u.id);
+        const updatedFac = { ...original, ...u };
+
+        try {
+            if (window.electronAPI?.saveLoan) {
+                await window.electronAPI.saveLoan(updatedFac, user?.displayName || 'system');
+
+                // Release the SharePoint lock immediately after saving
+                if (window.electronAPI?.releaseLock) {
+                    await window.electronAPI.releaseLock(u.id);
+                }
+
+                const updated = await window.electronAPI.loadLoans();
+                setFacilities(updated);
+                alert("✅ Success: Changes synced to SharePoint.");
+            } else {
+                setFacilities(prev => prev.map(f => f.id === u.id ? updatedFac : f));
+            }
+        } catch (err) {
+            console.error('Edit failed:', err);
+            setFacilities(prev => prev.map(f => f.id === u.id ? updatedFac : f));
+        }
+        setModal(null);
+    };
+
+    // 3. DELETE FACILITY
+    const delFac = async (id) => {
+        const confirmed = window.confirm("Are you sure you want to permanently delete this facility from SharePoint?");
+        if (!confirmed) return;
+
+        try {
+            if (window.electronAPI?.deleteLoan) {
+                await window.electronAPI.deleteLoan(id, user?.displayName || 'system');
+                const updated = await window.electronAPI.loadLoans();
+                setFacilities(updated);
+                alert("🗑️ Success: Facility removed from SharePoint.");
+            } else {
+                setFacilities(prev => prev.filter(f => f.id !== id));
+            }
+        } catch (err) {
+            console.error('Delete failed:', err);
+            setFacilities(prev => prev.filter(f => f.id !== id));
+        }
+    };
+
+    // 4. ADD DRAWDOWN
+    const addDD = async (fid, d) => {
+        const fac = facilities.find(f => f.id === fid);
+        const updatedFac = { ...fac, drawdowns: [...fac.drawdowns, d] };
+
+        try {
+            if (window.electronAPI?.saveLoan) {
+                await window.electronAPI.saveLoan(updatedFac, user?.displayName || 'system');
+                const updated = await window.electronAPI.loadLoans();
+                setFacilities(updated);
+                alert("💵 Success: Drawdown recorded.");
+            } else {
+                setFacilities(prev => prev.map(f => f.id === fid ? updatedFac : f));
+            }
+        } catch (err) {
+            console.error('Drawdown save failed:', err);
+            setFacilities(prev => prev.map(f => f.id === fid ? updatedFac : f));
+        }
+    };
+
+    // 5. RENEW FACILITY (Fixes the missing Renew Button logic)
+    const renewFac = async (oldId, renewalData) => {
+        const oldFac = facilities.find(f => f.id === oldId);
+        const updatedOldFac = {
+            ...oldFac,
+            status: 'Renewed',
+            remarks: (oldFac.remarks || "") + `\nRenewed on ${renewalData.startDate}`
+        };
+
+        const newFac = {
+            ...renewalData,
+            id: 'F' + Date.now(),
+            drawdowns: [],
+            repayments: []
+        };
+
+        try {
+            if (window.electronAPI?.saveLoan) {
+                await window.electronAPI.saveLoan(updatedOldFac, user?.displayName || 'system');
+                await window.electronAPI.saveLoan(newFac, user?.displayName || 'system');
+                const updated = await window.electronAPI.loadLoans();
+                setFacilities(updated);
+                alert("♻️ Success: Facility renewed and archived.");
+            } else {
+                setFacilities(prev => [...prev.map(f => f.id === oldId ? updatedOldFac : f), newFac]);
+            }
+        } catch (err) {
+            console.error('Renewal failed:', err);
+            setFacilities(prev => [...prev.map(f => f.id === oldId ? updatedOldFac : f), newFac]);
+        }
+        setModal(null);
+    };
+
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -1185,17 +1296,18 @@ export default function App() {
                     >
                       {' '}
                       {facs.map((f) => (
-                        <FacilityCard
-                          key={f.id}
-                          f={f}
-                          setModal={setModal}
-                          setConfirm={setConfirm}
-                          delFac={delFac}
-                          setSelectedFacility={setSelectedFacility}
-                          currencies={currencies}
-                        />
-                      ))}{' '}
-                    </div>{' '}
+                          <FacilityCard
+                              key={f.id}
+                              f={f}
+                              onDetail={handleDetailClick}
+                              onEdit={handleEditClick}
+                              setModal={setModal}
+                              setConfirm={setConfirm}
+                              delFac={delFac}
+                              currencies={currencies}
+                          />
+                      ))}
+                    </div>
                   </div>
                 ))
               ) : (
@@ -1204,16 +1316,17 @@ export default function App() {
                 >
                   {' '}
                   {filtered.map((f) => (
-                    <FacilityCard
-                      key={f.id}
-                      f={f}
-                      setModal={setModal}
-                      setConfirm={setConfirm}
-                      delFac={delFac}
-                      setSelectedFacility={setSelectedFacility}
-                      currencies={currencies}
-                    />
-                  ))}{' '}
+                      <FacilityCard
+                          key={f.id}
+                          f={f}
+                          onDetail={handleDetailClick}
+                          onEdit={() => handleEditClick(f)}
+                          setModal={setModal}
+                          setConfirm={setConfirm}
+                          delFac={delFac}
+                          currencies={currencies}
+                      />
+                  ))}
                 </div>
               )}{' '}
             </>
@@ -1446,8 +1559,10 @@ export default function App() {
             </div>
           )}{' '}
         </div>{' '}
-      </div>
-      {/* Modals */}{' '}
+          </div>
+
+      {/* Modals */}
+      {/* 1. ADD FACILITY MODAL */}
       {modal?.type === 'addFac' && (
         <FacilityFormWizard
           title="Register New Facility"
@@ -1457,23 +1572,32 @@ export default function App() {
           onAddBank={addBank}
           currencies={currencies}
         />
-      )}{' '}
+      )}
+      {/* 2. EDIT FACILITY MODAL (With Unlock logic) */}
       {modal?.type === 'editFac' && selFac && (
-        <FacilityFormWizard
-          title={`Edit ${selFac.facilityName}`}
-          initial={selFac}
-          onSave={editFac}
-          onClose={() => setModal(null)}
-          savedBanks={savedBanks}
-          onAddBank={addBank}
-          currencies={currencies}
-        />
+           <FacilityFormWizard
+            title={`Edit ${selFac.facilityName}`}
+              initial={selFac}
+              onSave={editFac}
+              onClose={async () => {
+              // RELEASE THE LOCK IF THE USER CANCELS
+                if (window.electronAPI?.releaseLock) {
+                await window.electronAPI.releaseLock(selFac.id);
+                }
+               setModal(null);
+                  }}
+               savedBanks={savedBanks}
+               onAddBank={addBank}
+               currencies={currencies}
+              />
           )}
-          {modal?.type === 'renew' && selFac && (
-              <RenewalModal
-                  facility={selFac}
-                  onRenew={renewFac}
-                  onClose={() => setModal(null)}
+
+      {/* 3. RENEW FACILITY MODAL */}
+      {modal?.type === 'renew' && selFac && (
+           <RenewalModal
+            facility={selFac}
+             onRenew={renewFac}
+             onClose={() => setModal(null)}
               />
           )}
       {modal?.type === 'drawdown' && selFac && (
