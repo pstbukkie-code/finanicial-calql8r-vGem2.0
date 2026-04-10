@@ -338,6 +338,11 @@ export function FacilityCard({
     onEdit,
     onDetail,
     currencies,
+    canDrawdown = true,
+    canRepay = true,
+    canRenew = true,
+    canEdit = true,
+    canDelete = true,
 }) {
     const stats = calcStats(f, currencies);
     const sym = f.ccy === 'NGN' ? '₦' : '$';
@@ -412,21 +417,31 @@ export function FacilityCard({
                 >
                     {f.status === 'Active' && (
                         <>
-                            <button onClick={() => setModal({ type: 'drawdown', facilityId: f.id })} style={mkbtn('#1d4ed8')}>↓ Drawdown</button>
-                            <button onClick={() => setModal({ type: 'repay', facilityId: f.id })} style={mkbtn('#059669')}>↩ Repay</button>
-                            <button onClick={() => setModal({ type: 'renew', facilityId: f.id })} style={mkbtn('#1e3a5f', '#c9a84c')}>♻️ Renew</button>
+                            {canDrawdown && (
+                              <button onClick={() => setModal({ type: 'drawdown', facilityId: f.id })} style={mkbtn('#1d4ed8')}>↓ Drawdown</button>
+                            )}
+                            {canRepay && (
+                              <button onClick={() => setModal({ type: 'repay', facilityId: f.id })} style={mkbtn('#059669')}>↩ Repay</button>
+                            )}
+                            {canRenew && (
+                              <button onClick={() => setModal({ type: 'renew', facilityId: f.id })} style={mkbtn('#1e3a5f', '#c9a84c')}>♻️ Renew</button>
+                            )}
                         </>
                     )}
-                    <button onClick={() => onEdit(f)} style={mkbtn('#374151', '#fbbf24')}>✏️ Edit</button>
-                    <button
-                        onClick={() => setConfirm({
-                            message: `Delete "${f.facilityName}"?`,
-                            onConfirm: () => delFac(f.id)
-                        })}
-                        style={mkbtn('#7f1d1d', '#fca5a5')}
-                    >
-                        🗑 Delete
-                    </button>
+                    {canEdit && (
+                      <button onClick={() => onEdit(f)} style={mkbtn('#374151', '#fbbf24')}>✏️ Edit</button>
+                    )}
+                    {canDelete && (
+                      <button
+                          onClick={() => setConfirm({
+                              message: `Delete "${f.facilityName}"?`,
+                              onConfirm: () => delFac(f.id)
+                          })}
+                          style={mkbtn('#7f1d1d', '#fca5a5')}
+                      >
+                          🗑 Delete
+                      </button>
+                    )}
                 </div>
             </div>
         </div>
