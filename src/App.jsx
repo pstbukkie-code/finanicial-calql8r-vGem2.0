@@ -631,41 +631,6 @@ export default function App() {
   // --- PERMISSIONS ---
   const permissions = usePermissions(user?.role);
 
-  // --- INITIAL AUTH CHECK ---
-  useEffect(() => {
-    const checkInitialAuth = async () => {
-      // Small delay to ensure Electron API is ready
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      if (window.electronAPI?.verifyUser) {
-        try {
-          console.log('🔍 Attempting automatic SSO login...');
-          const result = await window.electronAPI.verifyUser({ isSystemLogin: true });
-          if (result.success) {
-            console.log('✅ SSO Success:', result.user.displayName);
-            setUser(result.user);
-            try {
-              const savedLoans = await window.electronAPI.loadLoans();
-              if (savedLoans.length > 0) setFacilities(savedLoans);
-            } catch (e) { console.warn('Load loans failed:', e); }
-            setLoginMode('authenticated');
-            return;
-          }
-        } catch (err) {
-          console.error('SSO Error:', err);
-        }
-      }
-      
-      // If no SSO or it fails, go to login screen
-      console.log('➡️ No SSO session found, showing login screen');
-      setLoginMode('login');
-    };
-
-    if (loginMode === 'loading') {
-      checkInitialAuth();
-    }
-  }, [loginMode]);
-
   const handleManualLogin = async (email, password) => {
     try {
       if (window.electronAPI?.verifyUser) {
