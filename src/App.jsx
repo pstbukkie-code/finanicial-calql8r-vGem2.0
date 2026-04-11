@@ -52,17 +52,77 @@ import {
   RenewalModal,
 } from './modals';
 
-// --- Date/Time Hook ---
-function useDateTime() {
-  const [now, setNow] = useState(new Date());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000 * 60);
-    return () => clearInterval(timer);
-  }, []);
-  return now;
+// --- Permissions Hook (Centralized RBAC) ---
+function usePermissions(userRole) {
+  return useMemo(() => ({
+    canViewAuditLog: () => userRole === 'System Administrator',
+    canManageUsers: () => userRole === 'System Administrator',
+    canEditFacilities: () => userRole !== 'Viewer',
+    canAddFacilities: () => userRole !== 'Viewer',
+    canDeleteFacilities: () => userRole !== 'Viewer',
+    canDrawdown: () => userRole !== 'Viewer',
+    canRepay: () => userRole !== 'Viewer',
+    canRenew: () => userRole !== 'Viewer',
+  }), [userRole]);
 }
 
-// --- USER MANAGEMENT TABLE COMPONENT ---
+// --- Session Timeout Hook ---
+function useSessionTimeout(onTimeout, timeoutMinutes = 30) {
+  useEffect(() => {
+    let timeoutId;
+    let warningId;
+
+    const resetTimeout = () => {
+      clearTimeout(timeoutId);
+      clearTimeout(warningId);
+
+      warningId = setTimeout(() => {
+        console.warn('⚠️ Session will expire in 2 minutes due to inactivity');
+      }, (timeoutMinutes - 2) * 60 * 1000);
+
+      timeoutId = setTimeout(() => {
+        console.log('🔐 Session expired due to inactivity');
+        onTimeout();
+      }, timeoutMinutes * 60 * 1000);
+    };
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(event => {
+      window.addEventListener(event, resetTimeout);
+    });
+
+    resetTimeout();
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(warningId);
+      events.forEach(event => {
+        window.removeEventListener(event, resetTimeout);
+      });
+    };
+  }, [onTimeout, timeoutMinutes]);
+}
+
+// --- Logout Confirmation Modal ---
+function LogoutConfirmModal({ onConfirm, onCancel }) {
+  return (
+    <Modal title="🔐 Confirm Logout" onClose={onCancel} width={400}>
+      <p style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.6, marginBottom: 18 }}>
+        Are you sure you want to log out? Any unsaved changes will be lost.
+      </p>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onCancel} style={{ ...mkbtn('#1e3a5f', '#8aa3be'), flex: 1 }}>
+          CANCEL
+        </button>
+        <button onClick={onConfirm} style={{ ...mkbtn('#ef4444', '#fca5a5'), flex: 1 }}>
+          LOGOUT
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// --- Enhanced User Management Table ---
 function UserManagementTable({ user }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,23 +131,21 @@ function UserManagementTable({ user }) {
   const [newUserRole, setNewUserRole] = useState('User');
   const [editingUserId, setEditingUserId] = useState(null);
   const [editingRole, setEditingRole] = useState('User');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadUsersFromSharePoint = async () => {
     try {
       if (window.electronAPI?.readFile) {
         console.log('📂 Reading users.json from SharePoint...');
         const fileContent = await window.electronAPI.readFile('auth/users.json');
-        console.log('📂 Raw file content:', fileContent);
         const usersData = JSON.parse(fileContent);
         const usersList = usersData.authorized_users || [];
         setUsers(usersList);
-        console.log('✅ Loaded users from SharePoint:', usersList.length, usersList);
+        console.log('✅ Loaded users from SharePoint:', usersList.length);
       } else {
-        // Fallback demo data
-        console.warn('⚠️ Electron API not available, using demo data');
         setUsers([
-          { id: 1, email: 'admin@company.com', displayName: 'Admin User', role: 'System Administrator', password: 'Demo123' },
-          { id: 2, email: 'user@company.com', displayName: 'Regular User', role: 'User', password: 'Demo123' },
+          { id: 1, email: 'admin@company.com', displayName: 'Admin User', role: 'System Administrator', password: 'Demo123', lastLogin: new Date().toISOString() },
+          { id: 2, email: 'user@company.com', displayName: 'Regular User', role: 'User', password: 'Demo123', lastLogin: new Date(Date.now() - 86400000).toISOString() },
         ]);
       }
     } catch (err) {
@@ -105,30 +163,17 @@ function UserManagementTable({ user }) {
   const saveUsersToSharePoint = async (updatedUsers) => {
     try {
       if (window.electronAPI?.writeFile) {
-        const usersData = {
-          authorized_users: updatedUsers
-        };
+        const usersData = { authorized_users: updatedUsers };
         const jsonContent = JSON.stringify(usersData, null, 2);
-        console.log('💾 Saving to SharePoint:', jsonContent);
-
         await window.electronAPI.writeFile('auth/users.json', jsonContent);
         console.log('✅ Users saved to SharePoint successfully');
-
-        // Verify the save by reading back
-        setTimeout(async () => {
-          const verifyContent = await window.electronAPI.readFile('auth/users.json');
-          console.log('✅ Verification - File content after save:', verifyContent);
-        }, 500);
-
         return true;
       } else {
-        console.warn('⚠️ Electron API not available, changes saved locally only');
-        alert('⚠️ Changes saved locally only (Electron API unavailable)');
+        console.warn('⚠️ Electron API not available');
         return false;
       }
     } catch (err) {
-      console.error('❌ Failed to save users to SharePoint:', err);
-      alert('❌ Failed to save changes to SharePoint: ' + err.message);
+      console.error('❌ Failed to save users:', err);
       return false;
     }
   };
@@ -138,12 +183,10 @@ function UserManagementTable({ user }) {
       alert('Please enter email and password');
       return;
     }
-
     if (!newUserEmail.includes('@')) {
       alert('Please enter a valid email address');
       return;
     }
-
     if (users.some(u => u.email === newUserEmail)) {
       alert('This email is already registered');
       return;
@@ -156,58 +199,54 @@ function UserManagementTable({ user }) {
       password: newUserPassword,
       role: newUserRole,
       requiresPasswordChange: true,
+      createdAt: new Date().toISOString(),
+      lastLogin: null,
     };
 
-    console.log('➕ Adding new user:', newUser);
     const updatedUsers = [...users, newUser];
-    console.log('📝 Updated users list:', updatedUsers);
-
     const saved = await saveUsersToSharePoint(updatedUsers);
     if (saved) {
-      setUsers(updatedUsers); // Update local state
-      console.log('✅ User added successfully');
+      setUsers(updatedUsers);
       setNewUserEmail('');
       setNewUserPassword('');
       setNewUserRole('User');
-      alert(`✅ User ${newUserEmail} created successfully.\n\nThey will be prompted to change their password on first login.`);
-    } else {
-      console.error('❌ Failed to save user');
-      alert('❌ Failed to save user to SharePoint');
+      alert(`✅ User ${newUserEmail} created successfully.`);
     }
   };
 
   const handleRoleChange = async (userId, newRole) => {
     const updatedUsers = users.map(u => u.id === userId ? { ...u, role: newRole } : u);
-    setUsers(updatedUsers);
-
     const saved = await saveUsersToSharePoint(updatedUsers);
     if (saved) {
-      console.log('✅ User role updated');
+      setUsers(updatedUsers);
       setEditingUserId(null);
-      // Reload to ensure consistency
-      setTimeout(() => loadUsersFromSharePoint(), 500);
     }
   };
 
-  const handleEditUser = (userId, currentRole) => {
-    setEditingUserId(userId);
-    setEditingRole(currentRole);
+  const handleResetPassword = async (userId, userEmail) => {
+    const tempPassword = 'TempPass' + Math.random().toString(36).substring(2, 8);
+    const updatedUsers = users.map(u => u.id === userId ? { ...u, password: tempPassword, requiresPasswordChange: true } : u);
+    const saved = await saveUsersToSharePoint(updatedUsers);
+    if (saved) {
+      setUsers(updatedUsers);
+      alert(`✅ Password reset for ${userEmail}.\nTemporary password: ${tempPassword}`);
+    }
   };
 
   const handleDeleteUser = async (userId, userEmail) => {
-    if (!window.confirm(`Are you sure you want to delete user ${userEmail}? This action cannot be undone.`)) return;
-
+    if (!window.confirm(`Delete ${userEmail}? This cannot be undone.`)) return;
     const updatedUsers = users.filter(u => u.id !== userId);
-    setUsers(updatedUsers);
-
     const saved = await saveUsersToSharePoint(updatedUsers);
     if (saved) {
-      console.log('✅ User deleted successfully');
-      alert(`✅ User ${userEmail} has been deleted`);
-      // Reload to ensure consistency
-      setTimeout(() => loadUsersFromSharePoint(), 500);
+      setUsers(updatedUsers);
+      alert(`✅ User ${userEmail} deleted`);
     }
   };
+
+  const filteredUsers = users.filter(u => 
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.displayName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) return <div style={{ color: '#8aa3be' }}>Loading users...</div>;
 
@@ -231,25 +270,26 @@ function UserManagementTable({ user }) {
             onChange={(e) => setNewUserPassword(e.target.value)}
             style={S.inp}
           />
-          <select
-            value={newUserRole}
-            onChange={(e) => setNewUserRole(e.target.value)}
-            style={S.inp}
-          >
+          <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)} style={S.inp}>
             <option value="System Administrator">System Administrator</option>
             <option value="User">User</option>
             <option value="Viewer">Viewer</option>
           </select>
-          <button
-            onClick={handleAddUser}
-            style={mkbtn('#22c55e', '#0a1520')}
-          >
+          <button onClick={handleAddUser} style={mkbtn('#22c55e', '#0a1520')}>
             Add User
           </button>
         </div>
-        <div style={{ marginTop: 10, fontSize: 11, color: '#8aa3be' }}>
-          💡 Tip: Create a temporary password. New users will be prompted to change it on first login.
-        </div>
+      </div>
+
+      {/* SEARCH USERS */}
+      <div style={{ marginBottom: 12 }}>
+        <input
+          type="text"
+          placeholder="🔍 Search users by email or name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ ...S.inp, width: '300px' }}
+        />
       </div>
 
       {/* USERS TABLE */}
@@ -259,12 +299,13 @@ function UserManagementTable({ user }) {
             <th style={S.th}>Email</th>
             <th style={S.th}>Display Name</th>
             <th style={S.th}>Role</th>
+            <th style={S.th}>Last Login</th>
             <th style={S.th}>Status</th>
             <th style={S.th}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {users.map(u => (
+          {filteredUsers.map(u => (
             <tr key={u.id}>
               <td style={S.td}>{u.email}</td>
               <td style={S.td}>{u.displayName}</td>
@@ -284,8 +325,11 @@ function UserManagementTable({ user }) {
                 )}
               </td>
               <td style={S.td}>
+                {u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}
+              </td>
+              <td style={S.td}>
                 {u.requiresPasswordChange ? (
-                  <span style={{ color: '#f59e0b', fontSize: 10, fontWeight: 600 }}>🔐 Pwd Change Required</span>
+                  <span style={{ color: '#f59e0b', fontSize: 10, fontWeight: 600 }}>🔐 Pwd Change</span>
                 ) : (
                   <span style={{ color: '#22c55e', fontSize: 10 }}>✓ Active</span>
                 )}
@@ -310,16 +354,23 @@ function UserManagementTable({ user }) {
                   ) : (
                     <>
                       <button
-                        onClick={() => handleEditUser(u.id, u.role)}
+                        onClick={() => handleResetPassword(u.id, u.email)}
+                        style={mkbtn('#f59e0b', '#0a1520', 'sm')}
+                        title="Send password reset"
+                      >
+                        🔑 Reset
+                      </button>
+                      <button
+                        onClick={() => { setEditingUserId(u.id); setEditingRole(u.role); }}
                         style={mkbtn('#3b82f6', '#fff', 'sm')}
                       >
-                        ✏️ Edit
+                        ✎ Edit
                       </button>
                       <button
                         onClick={() => handleDeleteUser(u.id, u.email)}
-                        style={mkbtn('#7f1d1d', '#fca5a5', 'sm')}
+                        style={mkbtn('#ef4444', '#fca5a5', 'sm')}
                       >
-                        🗑️ Delete
+                        🗑 Delete
                       </button>
                     </>
                   )}
@@ -329,78 +380,182 @@ function UserManagementTable({ user }) {
           ))}
         </tbody>
       </table>
-
-      {users.length === 0 && (
-        <div style={{ padding: 20, textAlign: 'center', color: '#8aa3be' }}>
-          No users found. Create your first user above.
-        </div>
-      )}
     </div>
   );
 }
 
-// --- AUDIT TRAIL TABLE COMPONENT ---
-function AuditTrailTable() {
+// --- Enhanced Unified Audit Trail Table ---
+function UnifiedAuditTrailTable({ onExport }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterUser, setFilterUser] = useState('All');
+  const [filterAction, setFilterAction] = useState('All');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
 
   useEffect(() => {
-    const fetchAuditLog = async () => {
+    const fetchAuditLogs = async () => {
       try {
+        const allLogs = [];
+
+        // Fetch from audit_trail.txt
         if (window.electronAPI?.readFile) {
-          const fileContent = await window.electronAPI.readFile('audit_trail.txt');
-          // Parse the audit trail (assuming JSON lines format)
-          const logLines = fileContent
-            .split('\n')
-            .filter(line => line.trim())
-            .map((line, idx) => {
+          try {
+            const auditContent = await window.electronAPI.readFile('audit_trail.txt');
+            const auditLines = auditContent.split('\n').filter(line => line.trim());
+            auditLines.forEach((line, idx) => {
               try {
-                return { id: idx, ...JSON.parse(line) };
+                const parsed = JSON.parse(line);
+                allLogs.push({ id: `audit-${idx}`, source: 'audit_trail.txt', ...parsed });
               } catch (e) {
-                return { id: idx, timestamp: line, user: 'Unknown', action: 'Unknown', facilityId: '-' };
+                allLogs.push({ id: `audit-${idx}`, source: 'audit_trail.txt', timestamp: line, user: 'Unknown', action: 'Unknown', facilityId: '-' });
               }
             });
-          setLogs(logLines.reverse()); // Show newest first
-        } else {
-          // Fallback: show demo data
-          setLogs([
-            { id: 1, timestamp: new Date().toISOString(), user: 'admin@company.com', action: 'EDIT_FACILITY', facilityId: 'F1234' },
-            { id: 2, timestamp: new Date(Date.now() - 60000).toISOString(), user: 'user@company.com', action: 'ADD_DRAWDOWN', facilityId: 'F5678' },
-          ]);
+          } catch (err) {
+            console.warn('Could not read audit_trail.txt:', err);
+          }
+
+          // Fetch from app.log
+          try {
+            const appLogContent = await window.electronAPI.readFile('app.log');
+            const appLogLines = appLogContent.split('\n').filter(line => line.trim());
+            appLogLines.forEach((line, idx) => {
+              try {
+                const parsed = JSON.parse(line);
+                allLogs.push({ id: `applog-${idx}`, source: 'app.log', ...parsed });
+              } catch (e) {
+                const match = line.match(/\[(.*?)\]\s+\[(.*?)\]\s+(.*)/);
+                if (match) {
+                  allLogs.push({
+                    id: `applog-${idx}`,
+                    source: 'app.log',
+                    timestamp: match[1],
+                    level: match[2],
+                    message: match[3],
+                    user: 'System',
+                    action: match[2],
+                  });
+                }
+              }
+            });
+          } catch (err) {
+            console.warn('Could not read app.log:', err);
+          }
         }
+
+        // Fallback demo data
+        if (allLogs.length === 0) {
+          allLogs.push(
+            { id: 1, source: 'audit_trail.txt', timestamp: new Date().toISOString(), user: 'admin@company.com', action: 'EDIT_FACILITY', facilityId: 'F1234' },
+            { id: 2, source: 'app.log', timestamp: new Date(Date.now() - 60000).toISOString(), user: 'user@company.com', action: 'ADD_DRAWDOWN', facilityId: 'F5678' }
+          );
+        }
+
+        setLogs(allLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
       } catch (err) {
-        console.warn('Could not fetch audit trail:', err);
+        console.warn('Could not fetch audit logs:', err);
         setLogs([]);
       } finally {
         setLoading(false);
       }
     };
-    fetchAuditLog();
+
+    fetchAuditLogs();
   }, []);
+
+  const uniqueUsers = useMemo(() => {
+    const users = new Set(logs.map(l => l.user).filter(Boolean));
+    return ['All', ...Array.from(users).sort()];
+  }, [logs]);
+
+  const uniqueActions = useMemo(() => {
+    const actions = new Set(logs.map(l => l.action).filter(Boolean));
+    return ['All', ...Array.from(actions).sort()];
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter(log => {
+      if (filterUser !== 'All' && log.user !== filterUser) return false;
+      if (filterAction !== 'All' && log.action !== filterAction) return false;
+      if (filterDateFrom && new Date(log.timestamp) < new Date(filterDateFrom)) return false;
+      if (filterDateTo && new Date(log.timestamp) > new Date(filterDateTo)) return false;
+      return true;
+    });
+  }, [logs, filterUser, filterAction, filterDateFrom, filterDateTo]);
+
+  const handleExport = () => {
+    const csvData = filteredLogs.map(log => ({
+      'Date/Time': new Date(log.timestamp).toLocaleString(),
+      'User': log.user || 'Unknown',
+      'Action': log.action || 'Unknown',
+      'Facility ID': log.facilityId || '-',
+      'Source': log.source || '-',
+    }));
+    exportToCSV(csvData, 'audit_trail.csv');
+    alert('✅ Audit trail exported to CSV');
+  };
 
   if (loading) return <div style={{ color: '#8aa3be' }}>Loading audit trail...</div>;
 
   return (
-    <table style={S.table}>
-      <thead>
-        <tr>
-          <th style={S.th}>Date/Time</th>
-          <th style={S.th}>User</th>
-          <th style={S.th}>Action</th>
-          <th style={S.th}>Facility ID</th>
-        </tr>
-      </thead>
-      <tbody>
-        {logs.slice(0, 50).map(log => (
-          <tr key={log.id}>
-            <td style={S.td}>{new Date(log.timestamp).toLocaleString()}</td>
-            <td style={S.td}>{log.user}</td>
-            <td style={S.td}><span style={{ color: '#c9a84c', fontWeight: 600 }}>{log.action}</span></td>
-            <td style={S.td}>{log.facilityId}</td>
+    <div>
+      {/* FILTERS */}
+      <div style={{ ...S.card, marginBottom: 16, padding: 16 }}>
+        <div style={S.sec}>🔍 Filters</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 10, marginTop: 12 }}>
+          <select value={filterUser} onChange={(e) => setFilterUser(e.target.value)} style={S.inp}>
+            {uniqueUsers.map(u => <option key={u}>{u}</option>)}
+          </select>
+          <select value={filterAction} onChange={(e) => setFilterAction(e.target.value)} style={S.inp}>
+            {uniqueActions.map(a => <option key={a}>{a}</option>)}
+          </select>
+          <input
+            type="datetime-local"
+            value={filterDateFrom}
+            onChange={(e) => setFilterDateFrom(e.target.value)}
+            style={S.inp}
+            placeholder="From"
+          />
+          <input
+            type="datetime-local"
+            value={filterDateTo}
+            onChange={(e) => setFilterDateTo(e.target.value)}
+            style={S.inp}
+            placeholder="To"
+          />
+          <button onClick={handleExport} style={mkbtn('#22c55e', '#0a1520')}>
+            📥 Export CSV
+          </button>
+        </div>
+        <div style={{ marginTop: 8, fontSize: 11, color: '#8aa3be' }}>
+          Showing {filteredLogs.length} of {logs.length} entries
+        </div>
+      </div>
+
+      {/* AUDIT TABLE */}
+      <table style={S.table}>
+        <thead>
+          <tr>
+            <th style={S.th}>Date/Time</th>
+            <th style={S.th}>User</th>
+            <th style={S.th}>Action</th>
+            <th style={S.th}>Facility ID</th>
+            <th style={S.th}>Source</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {filteredLogs.slice(0, 100).map(log => (
+            <tr key={log.id}>
+              <td style={S.td}>{new Date(log.timestamp).toLocaleString()}</td>
+              <td style={S.td}>{log.user || 'Unknown'}</td>
+              <td style={S.td}><span style={{ color: '#c9a84c', fontWeight: 600 }}>{log.action || 'Unknown'}</span></td>
+              <td style={S.td}>{log.facilityId || '-'}</td>
+              <td style={S.td}><span style={{ fontSize: 10, color: '#8aa3be' }}>{log.source || '-'}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -435,11 +590,16 @@ export default function App() {
     };
 
     const handleLogout = () => {
+        setShowLogoutConfirm(true);
+    };
+
+    const confirmLogout = () => {
         setUser(null);
         setLoginMode('login');
         setFacilities([]);
         setModal(null);
         setConfirm(null);
+        setShowLogoutConfirm(false);
     };
 
     // --- AUTHENTICATION STATE ---
@@ -449,8 +609,18 @@ export default function App() {
     const [showPasswordChange, setShowPasswordChange] = useState(false);
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-    // Auto-Login: Check if the laptop user is authorized
+    // --- SESSION TIMEOUT ---
+    useSessionTimeout(() => {
+        alert('⏱️ Your session has expired due to inactivity. Please log in again.');
+        confirmLogout();
+    }, 30);
+
+    // --- PERMISSIONS ---
+    const permissions = usePermissions(user?.role);
+
+    // --- INITIAL AUTH CHECK ---
     useEffect(() => {
         const autoLogin = async () => {
             if (window.electronAPI && window.electronAPI.verifyUser) {
@@ -534,36 +704,36 @@ export default function App() {
                         const foundUser = authorizedUsers.find(u => u.email === email && u.password === password);
 
                         if (foundUser) {
-                            console.log('✅ Manual login successful (fallback mode) for:', email);
-                            setUser({
-                                email: foundUser.email,
-                                displayName: foundUser.displayName || email.split('@')[0],
-                                role: foundUser.role || 'User',
-                                requiresPasswordChange: foundUser.requiresPasswordChange || false
-                            });
+                          console.log('✅ Manual login successful (fallback mode) for:', email);
+                          setUser({
+                              email: foundUser.email,
+                              displayName: foundUser.displayName || email.split('@')[0],
+                              role: foundUser.role || 'User',
+                              requiresPasswordChange: foundUser.requiresPasswordChange || false
+                          });
 
-                            // Check if password change is required
-                            if (foundUser.requiresPasswordChange) {
-                                console.log('🔐 User must change password on first login');
-                                setShowPasswordChange(true);
-                                return;
+                          // Check if password change is required
+                          if (foundUser.requiresPasswordChange) {
+                            console.log('🔐 User must change password on first login');
+                            setShowPasswordChange(true);
+                            return;
+                          }
+
+                          // Load SharePoint data
+                          try {
+                            const savedLoans = await window.electronAPI.loadLoans();
+                            console.log('📦 Loaded facilities from SharePoint:', savedLoans.length);
+                            if (savedLoans.length > 0) {
+                                setFacilities(savedLoans);
                             }
+                          } catch (err) {
+                            console.warn('⚠️ Could not load facilities:', err);
+                          }
 
-                            // Load SharePoint data
-                            try {
-                                const savedLoans = await window.electronAPI.loadLoans();
-                                console.log('📦 Loaded facilities from SharePoint:', savedLoans.length);
-                                if (savedLoans.length > 0) {
-                                    setFacilities(savedLoans);
-                                }
-                            } catch (err) {
-                                console.warn('⚠️ Could not load facilities:', err);
-                            }
-
-                            setLoginMode('authenticated');
+                          setLoginMode('authenticated');
                         } else {
-                            setAuthError('Invalid email or password');
-                            console.error('❌ User not found or password mismatch');
+                          setAuthError('Invalid email or password');
+                          console.error('❌ User not found or password mismatch');
                         }
                     } else {
                         setAuthError('Authentication service unavailable');
@@ -1360,7 +1530,7 @@ export default function App() {
                 >
                   {sidebarCollapsed ? item.label.split(' ')[0] : item.label}{' '}
                 </button>
-              ))}{' '}
+              )){' '}
             </div>
           ))}{' '}
         </div>{' '}
@@ -1443,7 +1613,7 @@ export default function App() {
                                   onChange={handleFileUpload}
                               />
                           </label>
-                          {canAddFacilities() && (
+                          {permissions.canAddFacilities() && (
                             <button
                                 onClick={() => setModal({ type: 'addFac' })}
                                 style={mkbtn('#c9a84c', '#0a1520')}
@@ -1529,11 +1699,11 @@ export default function App() {
                   gridTemplateColumns: '1fr 1fr 1fr',
                   gap: 14,
                   marginBottom: 24,
-                              }}
+                }}
                 >
                 {/* Stacked bar by bank */}{' '}
                 <div style={S.card}>
-                  <div style={S.sec}>Utilization by Bank</div>{' '}
+                  <div style={S.sec}>Utilization by Bank</div>
                   <ResponsiveContainer width="100%" height={200}>
                     {' '}
                     <BarChart data={bankStackData}>
@@ -1565,13 +1735,13 @@ export default function App() {
                         fill="#22c55e"
                         name="Available"
                       />{' '}
-                    </BarChart>{' '}
-                  </ResponsiveContainer>{' '}
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
 
                 {/* Monthly borrowing costs bar */}
                 <div style={S.card}>
-                  <div style={S.sec}>Monthly Borrowing Costs</div>{' '}
+                  <div style={S.sec}>Monthly Borrowing Costs</div>
                   <ResponsiveContainer width="100%" height={200}>
                     {' '}
                     <BarChart data={monthlyCostData}>
@@ -1592,12 +1762,12 @@ export default function App() {
                         }}
                       />
                       <Bar dataKey="cost" fill="#a78bfa" name="Cost" />{' '}
-                    </BarChart>{' '}
-                  </ResponsiveContainer>{' '}
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
                 {/* Pie chart: limits vs drawdown vs headroom */}{' '}
                 <div style={S.card}>
-                  <div style={S.sec}>Portfolio Composition</div>{' '}
+                  <div style={S.sec}>Portfolio Composition</div>
                   <ResponsiveContainer width="100%" height={200}>
                     {' '}
                     <PieChart>
@@ -1614,7 +1784,7 @@ export default function App() {
                         <Cell fill="#3b82f6" />
                         <Cell fill="#f59e0b" />
                         <Cell fill="#22c55e" />{' '}
-                      </Pie>{' '}
+                      </Pie>
                       <Tooltip
                         formatter={(v) => fmtN(v)}
                         contentStyle={{
@@ -1622,8 +1792,8 @@ export default function App() {
                           border: '1px solid #1e3a5f',
                         }}
                       />{' '}
-                    </PieChart>{' '}
-                  </ResponsiveContainer>{' '}
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>{' '}
               </div>{' '}
               <div
@@ -1636,7 +1806,7 @@ export default function App() {
               >
                 {' '}
                 <div style={S.card}>
-                  <div style={S.sec}>Borrowing Cost</div>{' '}
+                  <div style={S.sec}>Borrowing Cost</div>
                   <div
                     style={{
                       display: 'flex',
@@ -1683,7 +1853,7 @@ export default function App() {
                             <option key={y} value={y}>
                               {y}
                             </option>
-                          ))}{' '}
+                          )){' '}
                         </select>{' '}
                         <select
                           value={costQuarter}
@@ -1715,7 +1885,7 @@ export default function App() {
                           <option key={y} value={y}>
                             {y}
                           </option>
-                        ))}{' '}
+                        )){' '}
                       </select>
                     )}{' '}
                   </div>{' '}
@@ -1731,7 +1901,7 @@ export default function App() {
                   </div>{' '}
                 </div>{' '}
                 <div style={S.card}>
-                  <div style={S.sec}>Maturity Ladder</div>{' '}
+                  <div style={S.sec}>Maturity Ladder</div>
                   <table style={S.table}>
                     {' '}
                     <thead>
@@ -1757,9 +1927,7 @@ export default function App() {
                           return (
                             <tr key={f.id}>
                               <td style={S.td}>{f.facilityName}</td>
-                              <td style={S.td}>
-                                {days < 0 ? 'Expired' : days}
-                              </td>
+                              <td style={S.td}>{days < 0 ? 'Expired' : days}</td>
                               <td
                                 style={{
                                   ...S.td,
@@ -1773,11 +1941,11 @@ export default function App() {
                               >
                                 {' '}
                                 {status === 'danger'
-                                  ? '⚠️'
+                                  ? '⚠️ Expired'
                                   : status === 'warning'
-                                  ? '⚠'
-                                  : '✓'}{' '}
-                              </td>
+                                  ? '⚠ Near'
+                                  : '✓ On track'}
+                                </td>
                             </tr>
                           );
                         })}
@@ -1807,15 +1975,15 @@ export default function App() {
                                           {facs.map((f) => (
                                               <FacilityCard key={f.id} f={f} onDetail={handleDetailClick} onEdit={handleEditClick} setModal={setModal} setConfirm={setConfirm} delFac={delFac} currencies={currencies} />
                                           ))}
-                                      </div>
                                   </div>
-                              ))
+                              </div>
+                          ))
                           ) : (
                               /* List View: ONLY PARENTS */
                               filtered.filter(f => !f.parentId).map((f) => (
                                   <FacilityCard key={f.id} f={f} onDetail={handleDetailClick} onEdit={() => handleEditClick(f)} setModal={setModal} setConfirm={setConfirm} delFac={delFac} currencies={currencies} />
                               ))
-                          )}
+                          }
                       </div>
                   )}
 
@@ -1844,7 +2012,7 @@ export default function App() {
           )}{' '}
           {activeTab === 'maturity' && (
             <div style={S.card}>
-              <div style={S.sec}>Full Maturity Ladder</div>{' '}
+              <div style={S.sec}>Full Maturity Ladder</div>
               <table style={S.table}>
                 {' '}
                 <thead>
@@ -1855,8 +2023,8 @@ export default function App() {
                     <th style={S.th}>Days Left</th>{' '}
                     <th style={S.th}>Outstanding</th>{' '}
                     <th style={S.th}>Status</th>{' '}
-                  </tr>{' '}
-                </thead>{' '}
+                  </tr>
+                </thead>
                 <tbody>
                   {active
                    .filter((f) => f.maturity)
@@ -1866,9 +2034,9 @@ export default function App() {
                  const status =
                   days < 0
                   ? 'danger'
-                     : days <= 30
+                  : days <= 30
                   ? 'warning'
-        :           'ontrack';
+                  : 'ontrack';
                 return (
                     <tr key={f.id}>
         <td style={S.td}>{f.facilityName}</td>
@@ -1929,7 +2097,7 @@ export default function App() {
           )}
           {activeTab === 'budashboard' && (
             <div style={S.card}>
-              <div style={S.sec}>Business Unit Performance</div>{' '}
+              <div style={S.sec}>Business Unit Performance</div>
               <table style={S.table}>
                 {' '}
                 <thead>
@@ -1941,8 +2109,8 @@ export default function App() {
                     <th style={S.th}>Repaid</th>{' '}
                     <th style={S.th}>Outstanding</th>{' '}
                     <th style={S.th}>Interest</th>{' '}
-                  </tr>{' '}
-                </thead>{' '}
+                  </tr>
+                </thead>
                 <tbody>
                   {' '}
                   {(() => {
@@ -2074,16 +2242,21 @@ export default function App() {
               )}
 
               {/* AUDIT TRAIL (Super-Users only) */}
-              {canViewAuditLog() && (
+              {permissions.canViewAuditLog() && (
                 <div style={{ ...S.card, marginTop: 16 }}>
-                  <div style={S.sec}>📋 Audit Trail</div>
-                  <AuditTrailTable />
+                  <div style={S.sec}>📋 Unified Audit Trail</div>
+                  <UnifiedAuditTrailTable onExport={() => {}} />
                 </div>
               )}
             </div>
           )}
         </div>{' '}
-          </div>
+      </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <LogoutConfirmModal onConfirm={confirmLogout} onCancel={() => setShowLogoutConfirm(false)} />
+      )}
 
       {/* Modals */}
       {/* 1. ADD FACILITY MODAL */}
